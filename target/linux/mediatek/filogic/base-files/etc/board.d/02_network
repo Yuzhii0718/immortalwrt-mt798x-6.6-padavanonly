@@ -191,14 +191,21 @@ mediatek_setup_macs()
 		wan_mac=$(mmc_get_mac_ascii u-boot-env WANMAC)
 		lan_mac=$(mmc_get_mac_ascii u-boot-env LANMAC)
 		;;
-	cudy,tr3000-v1)
-		wan_mac=$(mtd_get_mac_binary bdinfo 0xde00)
-                lan_mac=$(macaddr_add "$wan_mac" 1)
-		;;
 	bananapi,bpi-r3|\
 	bananapi,bpi-r3-mini|\
 	bananapi,bpi-r4)
 		wan_mac=$(macaddr_add $(cat /sys/class/net/eth0/address) 1)
+		;;
+	cmcc,a10-stock|\
+	cmcc,a10-ubootmod)
+		lan_mac=$(mtd_get_mac_binary Factory 0x2A)
+		wan_mac=$(mtd_get_mac_binary Factory 0x24)
+		label_mac=$wan_mac
+		local wifi_mac="$(mtd_get_mac_binary Factory 0x04)"
+		;;
+	cudy,tr3000-v1)
+		wan_mac=$(mtd_get_mac_binary bdinfo 0xde00)
+                lan_mac=$(macaddr_add "$wan_mac" 1)
 		;;
 	h3c,magic-nx30-pro|\
 	h3c,magic-nx30-pro-nmbm)
