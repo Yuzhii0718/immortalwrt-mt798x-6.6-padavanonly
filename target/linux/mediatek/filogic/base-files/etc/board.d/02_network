@@ -58,6 +58,7 @@ mediatek_setup_interfaces()
 	livinet,zr-3020|\
 	livinet,zr-3020-ubootmod|\
 	qihoo,360t7|\
+	tplink,wma301|\
 	*philips,hy3000*|\
 	sl,3000-emmc|\
 	bt,r320|\

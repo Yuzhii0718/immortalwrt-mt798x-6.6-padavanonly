@@ -1889,6 +1889,49 @@ define Device/qihoo_360t7
 endef
 TARGET_DEVICES += qihoo_360t7
 
+define Device/tplink_wma301
+  DEVICE_VENDOR := TP-Link
+  DEVICE_MODEL := WMA301
+  DEVICE_VARIANT := (stock layout)
+  DEVICE_DTS := mt7981b-tplink-wma301
+  SUPPORTED_DEVICES += tplink,wma301 mediatek,mt7981
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 65536k
+  KERNEL_IN_UBI := 1
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+endef
+TARGET_DEVICES += tplink_wma301
+
+define Device/tplink_wma301-ubootmod
+  DEVICE_VENDOR := TP-Link
+  DEVICE_MODEL := WMA301
+  DEVICE_VARIANT := (OpenWrt layout)
+  DEVICE_DTS := mt7981b-tplink-wma301-ubootmod
+  SUPPORTED_DEVICES += tplink,wma301 mediatek,mt7981
+  DEVICE_DTS_DIR := ../dts
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  UBOOTENV_IN_UBI := 1
+  IMAGES := sysupgrade.itb
+  KERNEL_INITRAMFS_SUFFIX := -recovery.itb
+  KERNEL := kernel-bin | gzip
+  KERNEL_INITRAMFS := kernel-bin | lzma | \
+        fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
+  IMAGE/sysupgrade.itb := append-kernel | \
+        fit gzip $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb external-static-with-rootfs | append-metadata
+  ARTIFACTS := preloader.bin bl31-uboot.fip
+  ARTIFACT/preloader.bin := mt7981-bl2 spim-nand-ddr3
+  ARTIFACT/bl31-uboot.fip := mt7981-bl31-uboot tplink_wma301
+endef
+TARGET_DEVICES += tplink_wma301-ubootmod
+
 define Device/routerich_ax3000
   DEVICE_VENDOR := Routerich
   DEVICE_MODEL := AX3000
