@@ -127,6 +127,7 @@ platform_do_upgrade() {
 	bt,r320|\
 	philips,hy3000|\
 	sl,3000-emmc|\
+	sn,r1|\
 	smartrg,sdg-8612|\
 	smartrg,sdg-8614|\
 	smartrg,sdg-8622|\
@@ -250,6 +251,7 @@ platform_copy_config() {
 	jdcloud,re-cp-03|\
 	sl,3000-emmc|\
 	bt,r320|\
+	sn,r1|\
 	smartrg,sdg-8612|\
 	smartrg,sdg-8614|\
 	smartrg,sdg-8622|\

@@ -82,7 +82,8 @@ cmcc,rax3000m|\
 bt,r320|\
 cmcc,rax3000me|\
 jdcloud,re-cp-03|\
-konka,komi-a31)
+konka,komi-a31|\
+sn,r1)
 	. /lib/upgrade/fit.sh
 	export_fitblk_bootdev
 	case "$CI_METHOD" in

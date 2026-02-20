@@ -245,7 +245,7 @@ mediatek_setup_macs()
 		lan_mac=$(macaddr_add $wan_mac 1)
 		label_mac=$lan_mac
 		;;
-        sl,3000-emmc)
+	sl,3000-emmc)
  		lan_mac=$(mmc_get_mac_binary factory 0x04)		
  		wan_mac=$(macaddr_add "$lan_mac" -2)
  		label_mac=$lan_mac
@@ -253,6 +253,11 @@ mediatek_setup_macs()
 	philips,hy3000)
 		lan_mac=$(mmc_get_mac_binary factory 0x74)
 		wan_mac=$(macaddr factory $lan_mac 1)
+		label_mac=$wan_mac
+		;;
+    sn,r1)
+		lan_mac=$(mmc_get_mac_binary factory 0x2a)
+		wan_mac=$(mmc_get_mac_binary factory 0x24)
 		label_mac=$wan_mac
 		;;
 	xiaomi,mi-router-ax3000t|\

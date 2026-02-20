@@ -639,6 +639,21 @@ define Device/philips_hy3000
 endef
 TARGET_DEVICES += philips_hy3000
 
+define Device/sn_r1
+  DEVICE_VENDOR := SN
+  DEVICE_MODEL := R1
+  DEVICE_DTS := mt7981b-sn-r1
+  DEVICE_DTS_DIR := ../dts
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware \
+	f2fsck mkf2fs e2fsprogs kmod-nvme mmc-utils losetup f2fs-tools kmod-fs-f2fs kmod-mmc
+  SUPPORTED_DEVICES += sn,r1
+  KERNEL := kernel-bin | lzma | fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
+  KERNEL_INITRAMFS := kernel-bin | lzma | \
+        fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += sn_r1
+
 define Device/cmcc_rax3000m_common
   DEVICE_DTS_OVERLAY := mt7981b-cmcc-rax3000m-nand
   DEVICE_DTS_DIR := ../dts
