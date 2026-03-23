@@ -21,7 +21,10 @@ mediatek_setup_interfaces()
 	mercusys,mr80x-v3|\
 	routerich,ax3000-v1|\
 	umi,uax3000e|\
-	zbtlink,zbt-z8103ax)
+	zbtlink,zbt-z8103ax|\
+	zbtlink,zbt-z8103ax-c|\
+	zbtlink,zbt-z8103ax-c-nmbm|\
+	zbtlink,zbt-z8103ax-c-ubootmod)
 		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" eth1
 		;;
 	acelink,ew-7886cax)
