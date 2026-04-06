@@ -39,3 +39,8 @@ git-src
 !/dl/datconf*
 !/dl/mt79*
 !/dl/warp*
+
+# For personal use
+/package/*
+.config-*
+*.patch
