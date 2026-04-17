@@ -1,0 +1,71 @@
+[][kernel-6.12][common][eth][Update Airoha EN8811H 2.5G PHY upstream driver to v2.0.7]
+[Description]
+Update Airoha EN8811H 2.5G PHY upstream driver to v2.0.7.
+
+Change Log:
+[2026/01/08] v2.0.7
+1. Fix CKO function
+
+DTS Example:
+========================================================================
+&eth {
+	...
+
+	gmac2: mac@2 {
+		compatible = "mediatek,eth-mac";
+		reg = <2>;
+		phy-mode = "2500base-x";
+		phy-handle = <&phy11>;
+	};
+
+	mdio: mdio-bus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		phy11: phy@11 {
+			compatible = "ethernet-phy-id03a2.a411";
+			reg = <11>;
+			phy-mode = "2500base-x";
+			airoha,phy-handle;
+		};
+
+		...
+	};
+};
+========================================================================
+In addition, if the EN8811H is connected to a RESET GPIO, please check
+the GPIO number and add the following properties to the relevant phy node.
+
+reset-gpios = <&pio 48 1>;
+reset-assert-us = <10000>;
+reset-deassert-us = <10000>;
+========================================================================
+
+Note:
+* SerDes polarity setting could be configured in dts. Please refer to
+the following description.
+Tx Reverse, Rx Normal:
+		airoha,pnswap-tx;
+Tx Normal, Rx Normal:
+		There is no need to add pnswap property in the DTS.
+Tx Reverse, Rx Reverse:
+		airoha,pnswap-tx;
+		airoha,pnswap-rx;
+Tx Normal, Rx Reverse:
+		airoha,pnswap-rx;
+
+* phy-handle setting (for en8811h initialized) could be configured in dts.
+Please refer to the following description.
+- Work with phy-handle
+	Add "airoha,phy-handle" in DTS
+- Work with fixed-link
+	Do not add "airoha,phy-handle" in DTS
+
+Without this patch, building the kernel module will fail.
+
+[Release-log]
+N/A
+
+
+Change-Id: I1ab6ae0cdbdf8dc729a7e9cf999a3120cbd6270e
+Reviewed-on: https://gerrit.mediatek.inc/c/openwrt/feeds/mtk_openwrt_feeds/+/11634023
