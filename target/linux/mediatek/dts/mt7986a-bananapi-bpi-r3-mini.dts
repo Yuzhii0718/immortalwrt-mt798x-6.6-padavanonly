@@ -179,7 +179,7 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&en8811_pwr_a>;
 
-			airoha,polarity = <3>;
+			airoha,pnswap-rx;
 
 			interrupt-parent = <&pio>;
 			interrupts = <48 IRQ_TYPE_LEVEL_HIGH>;
@@ -198,7 +198,7 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&en8811_pwr_b>;
 
-			airoha,polarity = <3>;
+			airoha,pnswap-rx;
 
 			interrupt-parent = <&pio>;
 			interrupts = <46 IRQ_TYPE_LEVEL_HIGH>;
