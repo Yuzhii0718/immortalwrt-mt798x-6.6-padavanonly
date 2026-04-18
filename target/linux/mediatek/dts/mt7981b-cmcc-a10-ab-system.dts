@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+
+/dts-v1/;
+#include "mt7981b-cmcc-a10.dtsi"
+
+/ {
+	model = "CMCC A10 (ab-system layout)";
+	compatible = "cmcc,a10-ab-system", "mediatek,mt7981";
+};
+
+&partitions {
+	partition@580000 {
+		label = "kernel";
+		reg = <0x580000 0x600000>;
+	};
+
+	partition@b80000 {
+		label = "kernel_1";
+		reg = <0xb80000 0x600000>;
+	};
+
+	partition@1180000 {
+		label = "rootfs";
+		reg = <0x1180000 0x1e00000>;
+	};
+
+	partition@2f80000 {
+		label = "rootfs_1";
+		reg = <0x2f80000 0x1e00000>;
+	};
+
+	partition@4d80000 {
+		label = "ubifs";
+		reg = <0x4d80000 0x2800000>;
+	};
+};

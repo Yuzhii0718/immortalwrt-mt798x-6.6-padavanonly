@@ -62,10 +62,207 @@ xiaomi_initial_setup()
 	esac
 }
 
+get_fw_env()
+{
+	fw_printenv -n "$1" 2>/dev/null
+}
+
+ab_system_initial_setup()
+{
+	# initialize shared ubifs and ensure rootfs_data exists when running on initramfs
+	[ "$(rootfs_type)" = "tmpfs" ] || return 0
+
+	local mtdnum ubidev
+
+	mtdnum="$(find_mtd_index ubifs)"
+	if [ -z "$mtdnum" ]; then
+		echo "ab-system: unable to find mtd partition ubifs"
+		return 1
+	fi
+
+	ubidev="$(nand_find_ubi ubifs)"
+	if [ -z "$ubidev" ]; then
+		ubidetach -m "$mtdnum" 2>/dev/null
+		ubiformat "/dev/mtd$mtdnum" -y
+		ubiattach --mtdn="$mtdnum"
+		ubidev="$(nand_find_ubi ubifs)"
+	fi
+
+	if [ -z "$ubidev" ]; then
+		echo "ab-system: unable to attach ubifs as UBI"
+		return 1
+	fi
+
+	if ! nand_find_volume "$ubidev" rootfs_data >/dev/null; then
+		ubimkvol "/dev/$ubidev" -N rootfs_data -m
+	fi
+}
+
+update_oem_ubi_volume() {
+	local oem_volume_name="$1"
+	local oem_volume_part="${2:-$CI_UBIPART}"
+	local oem_volume_size="$3"
+	local oem_volume_data="$4"
+	local oem_ubivol
+	local mtdnum
+	local ubidev
+
+	mtdnum=$(find_mtd_index "$oem_volume_part")
+	if [ ! "$mtdnum" ]; then
+		return
+	fi
+
+	ubidev=$(nand_find_ubi "$oem_volume_part")
+	if [ ! "$ubidev" ]; then
+		ubiattach --mtdn="$mtdnum"
+		ubidev=$(nand_find_ubi "$oem_volume_part")
+	fi
+	[ "$ubidev" ] || return
+
+	oem_ubivol=$(nand_find_volume "$ubidev" "$oem_volume_name")
+	[ "$oem_ubivol" ] || return
+
+	ubirmvol "/dev/$ubidev" -N "$oem_volume_name"
+
+	# return if no new size specified
+	[ "$oem_volume_size" ] || return
+	ubimkvol "/dev/$ubidev" -N "$oem_volume_name" -s "$oem_volume_size"
+
+	# return if no new data specified
+	[ "$oem_volume_data" ] || return
+	ubiupdatevol "/dev/$ubidev" -s "$oem_volume_size" "$oem_volume_data"
+}
+
+set_dual_ubi_upgrade_parts()
+{
+	local kern_ubipart root_ubipart prio
+
+	kern_ubipart="$(get_fw_env sysupgrade_kernel_ubipart)"
+	root_ubipart="$(get_fw_env sysupgrade_rootfs_ubipart)"
+
+	if [ -z "$kern_ubipart" ] && [ -z "$root_ubipart" ]; then
+		prio="$(get_fw_env priority_root)"
+		case "$prio" in
+		ubi)
+			kern_ubipart="ubi2"
+			root_ubipart="ubi2"
+			;;
+		ubi2)
+			kern_ubipart="ubi"
+			root_ubipart="ubi"
+			;;
+		esac
+	fi
+
+	[ -z "$root_ubipart" ] && root_ubipart="$kern_ubipart"
+	[ -z "$kern_ubipart" ] && kern_ubipart="$root_ubipart"
+
+	if [ -z "$kern_ubipart" ] || [ -z "$root_ubipart" ]; then
+		echo "dual-ubi: unable to determine inactive UBI partition" >&2
+		return 1
+	fi
+
+	CI_KERN_UBIPART="$kern_ubipart"
+	CI_ROOT_UBIPART="$root_ubipart"
+	return 0
+}
+
+set_ab_upgrade_parts()
+{
+	local prio kern_part root_part
+
+	prio="$(get_fw_env priority_root)"
+	case "$prio" in
+	kernel|rootfs)
+		kern_part="kernel_1"
+		root_part="rootfs_1"
+		;;
+	kernel_1|rootfs_1)
+		kern_part="kernel"
+		root_part="rootfs"
+		;;
+	esac
+
+	if [ -z "$kern_part" ] || [ -z "$root_part" ]; then
+		echo "ab: unable to determine inactive kernel/rootfs partitions" >&2
+		return 1
+	fi
+
+	CI_KERNPART="$kern_part"
+	CI_ROOTPART="$root_part"
+	return 0
+}
+
+set_dual_itb_upgrade_parts()
+{
+	local fw_ubipart fw_vol prio
+
+	fw_ubipart="$(get_fw_env sysupgrade_firmware_ubipart)"
+	fw_vol="$(get_fw_env sysupgrade_firmware_ubivol)"
+
+	[ -z "$fw_ubipart" ] && fw_ubipart="ubi"
+
+	if [ -z "$fw_vol" ]; then
+		prio="$(get_fw_env priority_root)"
+		case "$prio" in
+		firmware)
+			fw_vol="firmware2"
+			;;
+		firmware2)
+			fw_vol="firmware"
+			;;
+		esac
+	fi
+
+	if [ -z "$fw_vol" ]; then
+		echo "dual-itb: unable to determine inactive firmware volume" >&2
+		return 1
+	fi
+
+	CI_UBIPART="$fw_ubipart"
+	CI_KERNPART="$fw_vol"
+	CI_ROOTPART="$fw_vol"
+	return 0
+}
+
+set_dual_itb_boot_env()
+{
+	local root_slot
+
+	if ! fw_printenv >/dev/null 2>&1; then
+		echo "failed to access u-boot-env. skip env setup."
+		return 0
+	fi
+
+	root_slot="$(get_fw_env priority_root)"
+	case "$root_slot" in
+	firmware|firmware2)
+		;;
+	*)
+		root_slot="firmware"
+		;;
+	esac
+
+	fw_setenv rootdisk "$root_slot"
+	fw_setenv bootargs "root=/dev/fit0 rootwait"
+}
+
 platform_do_upgrade() {
 	local board=$(board_name)
 
 	case "$board" in
+	cmcc,a10-dual-ubi)
+		set_dual_ubi_upgrade_parts || return 1
+		nand_do_upgrade "$1"
+		;;
+	cmcc,a10-dual-itb)
+		set_dual_itb_upgrade_parts || return 1
+		nand_do_upgrade "$1"
+		;;
+	cmcc,a10-ab-system)
+		set_ab_upgrade_parts || return 1
+		nand_do_upgrade "$1"
+		;;
 	netcore,n60-pro|\
 	tplink,tl-xdr4288|\
         tplink,tl-xdr6086|\
@@ -284,6 +481,12 @@ platform_pre_upgrade() {
 	asus,tuf-ax4200|\
 	asus,tuf-ax6000)
 		asus_initial_setup
+		;;
+	cmcc,a10-ab-system)
+		ab_system_initial_setup
+		;;
+	cmcc,a10-dual-itb)
+		set_dual_itb_boot_env
 		;;
 	xiaomi,mi-router-ax3000t|\
 	xiaomi,mi-router-wr30u-stock|\

@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+
+/dts-v1/;
+#include "mt7981b-cmcc-a10.dtsi"
+
+/ {
+	model = "CMCC A10 (dual-itb U-Boot layout)";
+	compatible = "cmcc,a10-dual-itb", "mediatek,mt7981";
+};
+
+&partitions {
+	partition@580000 {
+		compatible = "linux,ubi";
+		label = "ubi";
+		reg = <0x580000 0x7a80000>;
+
+		volumes {
+			ubi_firmware: ubi-volume-firmware {
+				volname = "firmware";
+			};
+
+			ubi_firmware2: ubi-volume-firmware2 {
+				volname = "firmware2";
+			};
+
+			ubi_ubootenv: ubi-volume-ubootenv {
+				volname = "ubootenv";
+			};
+
+			ubi_ubootenv2: ubi-volume-ubootenv2 {
+				volname = "ubootenv2";
+			};
+		};
+	};
+};
+
+&ubi_ubootenv {
+	nvmem-layout {
+		compatible = "u-boot,env-redundant-bool";
+	};
+};
+
+&ubi_ubootenv2 {
+	nvmem-layout {
+		compatible = "u-boot,env-redundant-bool";
+	};
+};
