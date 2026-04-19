@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+
+/dts-v1/;
+#include "mt7981b-cmcc-a10.dtsi"
+
+/ {
+	model = "CMCC A10 (256m layout)";
+	compatible = "cmcc,a10-256m", "mediatek,mt7981";
+};
+
+&spi_nand {
+	spi-cal-enable;
+	spi-cal-mode = "read-data";
+	spi-cal-datalen = <7>;
+	spi-cal-data = /bits/ 8 <0x53 0x50 0x49 0x4E 0x41 0x4E 0x44>;
+	spi-cal-addrlen = <5>;
+	spi-cal-addr = /bits/ 32 <0x0 0x0 0x0 0x0 0x0>;
+
+	mediatek,nmbm;
+	mediatek,bmt-max-ratio = <1>;
+	mediatek,bmt-max-reserved-blocks = <64>;
+};
+
+&partitions {
+	partition@580000 {
+		label = "ubi";
+		reg = <0x580000 0xe640000>;
+	};
+};
