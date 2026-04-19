@@ -100,6 +100,9 @@ sn,r1)
 		;;
 	esac
 	;;
+ruijie,rg-x60*)
+	ubootenv_add_uci_config "/dev/mtd2" "0x0" "0x80000" "0x20000" "4"
+	;;
 cetron,ct3003|\
 edgecore,eap111|\
 h3c,magic-nx30-pro-nmbm|\

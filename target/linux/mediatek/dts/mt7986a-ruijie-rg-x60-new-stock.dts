@@ -4,14 +4,14 @@
 #include "mt7986a-ruijie-rg-x60-new-common.dtsi"
 
 / {
-	compatible = "ruijie,rg-x60-new", "mediatek,mt7986a";
-	model = "Ruijie RG-X60 New";
+	compatible = "ruijie,rg-x60-new-stock", "mediatek,mt7986a";
+	model = "Ruijie RG-X60 New (stock layout)";
 };
 
 &partitions {
 	partition@680000 {
 		label = "ubi";
-		reg = <0x680000 0x6b00000>;
+		reg = <0x680000 0x3f00000>;
 	};
 };
 

@@ -8,18 +8,15 @@
 #include "mt7986a.dtsi"
 
 / {
-	model = "Ruijie RG-X60";
-	compatible = "ruijie,rg-x60", "mediatek,mt7986a";
-
 	aliases {
 		serial0 = &uart0;
-		led-boot = &led_system;
-		led-failsafe = &led_alarm;
-		led-running = &led_system;
-		led-upgrade = &led_alarm;
+		led-boot = &led_status_red;
+ 		led-failsafe = &led_status_red;
+ 		led-running = &led_status_green;
+ 		led-upgrade = &led_status_blue;
 	};
 
-	chosen {
+	chosen: chosen {
 		bootargs = "console=ttyS0,115200n8 earlycon=uart8250,mmio32,0x11002000";
 	};
 
@@ -43,19 +40,27 @@
 		};
 	};
 
-	leds-gpio {
+	gpio-leds {
 		compatible = "gpio-leds";
 
-		led_system: led-0 {
-			color = <LED_COLOR_ID_WHITE>;
-			function = LED_FUNCTION_STATUS;
+		led_status_red: led-0 {
+			label = "red:status";
+			gpios = <&pio 10 GPIO_ACTIVE_LOW>;
+		};
+
+		led_status_green: led-1 {
+			label = "green:status";
 			gpios = <&pio 9 GPIO_ACTIVE_LOW>;
 		};
 
-		led_alarm: led-1 {
-			color = <LED_COLOR_ID_PURPLE>;
-			function = LED_FUNCTION_STATUS;
-			gpios = <&pio 19 GPIO_ACTIVE_LOW>;
+		led_status_blue: led-2 {
+			label = "blue:status";
+			gpios = <&pio 11 GPIO_ACTIVE_LOW>;
+		};
+
+		mesh_led: led-3 {
+			label = "mesh:status";
+			gpios = <&pio 22 GPIO_ACTIVE_LOW>;
 		};
 	};
 };
@@ -77,18 +82,32 @@
 	gmac1: mac@1 {
 		compatible = "mediatek,eth-mac";
 		reg = <1>;
+		mediatek,gmac-id = <1>;
+		mediatek,sgmiisys = <&sgmiisys1>;
 		phy-mode = "2500base-x";
-		fixed-link {
-                        speed = <2500>;
-                        full-duplex;
-                        paus;
-                };
+		phy-handle = <&phy15>;
 	};
 
 	mdio: mdio-bus {
 		#address-cells = <1>;
 		#size-cells = <0>;
+
+		phy15: phy@f {
+			compatible = "ethernet-phy-id03a2.a411";
+			reg = <15>;
+			
+			reset-gpios = <&pio 6 1>;
+			reset-assert-us = <10000>;
+			reset-deassert-us = <10000>;
+
+			phy-mode = "2500base-x";
+			airoha,phy-handle;
+		};
 	};
+};
+
+&sgmiisys1 {
+	status = "okay";
 };
 
 &mdio {
@@ -100,18 +119,6 @@
 		#interrupt-cells = <1>;
 		interrupt-parent = <&pio>;
 		interrupts = <66 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
-	phy15: phy@15 {
-			compatible = "ethernet-phy-id03a2.a411";
-			reg = <15>;
-			airoha,polarity = <1>;
-			reset-gpios = <&pio 6 1>;
-			reset-assert-us = <10000>;
-			reset-deassert-us = <20000>;
-			phy-mode = "2500base-x";
-			full-duplex;
-			pause;
 	};
 };
 
@@ -130,6 +137,23 @@
 			pins = "SPI2_CLK", "SPI2_MOSI", "SPI2_MISO";
 			drive-strength = <8>;
 			mediatek,pull-down-adv = <0>; /* bias-disable */
+		};
+	};
+
+	wf_dbdc_pins: wf-dbdc-pins {
+		mux {
+			function = "wifi";
+			groups = "wf_dbdc";
+		};
+		conf {
+			pins = "WF0_HB1", "WF0_HB2", "WF0_HB3", "WF0_HB4",
+			       "WF0_HB0", "WF0_HB0_B", "WF0_HB5", "WF0_HB6",
+			       "WF0_HB7", "WF0_HB8", "WF0_HB9", "WF0_HB10",
+			       "WF0_TOP_CLK", "WF0_TOP_DATA", "WF1_HB1",
+			       "WF1_HB2", "WF1_HB3", "WF1_HB4", "WF1_HB0",
+			       "WF1_HB5", "WF1_HB6", "WF1_HB7", "WF1_HB8",
+			       "WF1_TOP_CLK", "WF1_TOP_DATA";
+			drive-strength = <4>;
 		};
 	};
 
@@ -156,21 +180,24 @@
 	pinctrl-0 = <&spi_flash_pins>;
 	status = "okay";
 
-	flash@0 {
+	spi_nand: flash@0 {
 		compatible = "spi-nand";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		reg = <0>;
 
-		spi-max-frequency = <20000000>;
+		spi-max-frequency = <52000000>;
 		spi-tx-bus-width = <4>;
 		spi-rx-bus-width = <4>;
 
-		mediatek,nmbm;
-		mediatek,bmt-max-ratio = <1>;
-		mediatek,bmt-max-reserved-blocks = <64>;
+		spi-cal-enable;
+		spi-cal-mode = "read-data";
+		spi-cal-datalen = <7>;
+		spi-cal-data = /bits/ 8 <0x53 0x50 0x49 0x4E 0x41 0x4E 0x44>;
+		spi-cal-addrlen = <5>;
+		spi-cal-addr = /bits/ 32 <0x0 0x0 0x0 0x0 0x0>;
 
-		partitions {
+		partitions: partitions {
 			compatible = "fixed-partitions";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -220,11 +247,6 @@
 				reg = <0x600000 0x80000>;
 				read-only;
 			};
-
-			partition@680000 {
-				label = "ubi";
-				reg = <0x680000 0x6b00000>;
-			};
 		};
 	};
 };
@@ -236,22 +258,22 @@
 
 		port@0 {
 			reg = <0>;
-			label = "lan1";
+			label = "lan0";
 		};
 
 		port@1 {
 			reg = <1>;
-			label = "lan2";
+			label = "lan1";
 		};
 
 		port@2 {
 			reg = <2>;
-			label = "lan3";
+			label = "lan2";
 		};
 
 		port@3 {
 			reg = <3>;
-			label = "lan4";
+			label = "lan3";
 		};
 
 		port@6 {
@@ -271,11 +293,16 @@
 
 &wifi {
 	status = "okay";
-	pinctrl-names = "default";
+	pinctrl-names = "default", "dbdc";
 	pinctrl-0 = <&wf_2g_5g_pins>;
+	pinctrl-1 = <&wf_dbdc_pins>;
 
 	nvmem-cells = <&eeprom_factory_0>;
 	nvmem-cell-names = "eeprom";
+};
+
+&trng {
+	status = "okay";
 };
 
 &uart0 {

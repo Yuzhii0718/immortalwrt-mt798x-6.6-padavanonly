@@ -106,6 +106,7 @@ platform_do_upgrade() {
 	openwrt,one|\
 	netcore,n60|\
 	routerich,ax3000-ubootmod|\
+	ruijie,rg-x60-new-ubootmod|\
 	tplink,tl-xtr8488|\
 	wirelesstag,zx7981pd-ubootmod|\
 	zyxel,ex5601-t0-ubootmod)

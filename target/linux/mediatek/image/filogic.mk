@@ -1971,16 +1971,76 @@ define Device/yvr_x6
 endef
 TARGET_DEVICES += yvr_x6
 
-
-define Device/ruijie_rg-x60-new-107m
+define Device/ruijie_rg-x60-new
   DEVICE_VENDOR := Ruijie
-  DEVICE_MODEL := RG-X60 New-107M
-  DEVICE_DTS := mt7986a-ruijie-rg-x60-new-107m
+  DEVICE_MODEL := RG-X60 New
+  DEVICE_DTS := mt7986a-ruijie-rg-x60-new
+  DEVICE_DTS_CONFIG := config@ruijie_x60_gsw_en8811h_phy
   DEVICE_DTS_DIR := ../dts
-  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware \
+         kmod-phy-airoha-en8811h airoha-en8811h-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 109568k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  KERNEL = kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
+  KERNEL_INITRAMFS = kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd
 endef
-TARGET_DEVICES += ruijie_rg-x60-new-107m
+TARGET_DEVICES += ruijie_rg-x60-new
+
+define Device/ruijie_rg-x60-new-stock
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := RG-X60 New
+  DEVICE_VARIANT := (stock layout)
+  DEVICE_DTS := mt7986a-ruijie-rg-x60-new-stock
+  DEVICE_DTS_CONFIG := config@ruijie_x60_gsw_en8811h_phy
+  DEVICE_DTS_DIR := ../dts
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware \
+         kmod-phy-airoha-en8811h airoha-en8811h-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 64512k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  KERNEL = kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
+  KERNEL_INITRAMFS = kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd
+endef
+TARGET_DEVICES += ruijie_rg-x60-new-stock
+
+define Device/ruijie_rg-x60-new-ubootmod
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := RG-X60 New
+  DEVICE_VARIANT := (OpenWrt U-Boot layout)
+  DEVICE_DTS := mt7986a-ruijie-rg-x60-new-ubootmod
+  DEVICE_DTS_CONFIG := config@ruijie_x60_gsw_en8811h_phy
+  DEVICE_DTS_DIR := ../dts
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware \
+         kmod-phy-airoha-en8811h airoha-en8811h-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  UBOOTENV_IN_UBI := 1
+  IMAGES := sysupgrade.itb
+  KERNEL_INITRAMFS_SUFFIX := -recovery.itb
+  KERNEL := kernel-bin | gzip
+  KERNEL_INITRAMFS := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
+  IMAGE/sysupgrade.itb := append-kernel | \
+	fit gzip $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb external-static-with-rootfs | append-metadata
+endef
+TARGET_DEVICES += ruijie_rg-x60-new-ubootmod
 
 define Device/ruijie_rg-x60-pro-107m
   DEVICE_VENDOR := Ruijie
@@ -1991,16 +2051,6 @@ define Device/ruijie_rg-x60-pro-107m
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += ruijie_rg-x60-pro-107m
-
-define Device/ruijie_rg-x60-new
-  DEVICE_VENDOR := Ruijie
-  DEVICE_MODEL := RG-X60 New
-  DEVICE_DTS := mt7986a-ruijie-rg-x60-new
-  DEVICE_DTS_DIR := ../dts
-  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-endef
-TARGET_DEVICES += ruijie_rg-x60-new
 
 define Device/ruijie_rg-x60-pro
   DEVICE_VENDOR := Ruijie
