@@ -1956,6 +1956,29 @@ define Device/ruijie_rg-x60-new
 endef
 TARGET_DEVICES += ruijie_rg-x60-new
 
+define Device/ruijie_rg-x60-new-expand
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := RG-X60 New (Expand)
+  DEVICE_DTS := mt7986a-ruijie-rg-x60-new-expand
+  DEVICE_DTS_CONFIG := config@ruijie_x60_gsw_en8811h_phy
+  DEVICE_DTS_DIR := ../dts
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware \
+         kmod-phy-airoha-en8811h airoha-en8811h-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 115712k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  KERNEL = kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
+  KERNEL_INITRAMFS = kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd
+endef
+TARGET_DEVICES += ruijie_rg-x60-new-expand
+
 define Device/ruijie_rg-x60-new-stock
   DEVICE_VENDOR := Ruijie
   DEVICE_MODEL := RG-X60 New
