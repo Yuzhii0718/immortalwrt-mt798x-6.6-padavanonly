@@ -71,9 +71,9 @@
 +CONFIG_NET_RANDOM_ETHADDR=y
 +CONFIG_NETCONSOLE=y
 +CONFIG_USE_IPADDR=y
-+CONFIG_IPADDR="192.168.6.1"
++CONFIG_IPADDR="192.168.1.1"
 +CONFIG_USE_SERVERIP=y
-+CONFIG_SERVERIP="192.168.6.254"
++CONFIG_SERVERIP="192.168.1.254"
 +CONFIG_REGMAP=y
 +CONFIG_SYSCON=y
 +CONFIG_BUTTON=y
@@ -155,13 +155,13 @@
 +
 +		led_status_red: led-0 {
 +			label = "red:status";
-+			gpios = <&gpio 14 GPIO_ACTIVE_HIGH>;
-+			default-state = "on";
++			gpios = <&gpio 12 GPIO_ACTIVE_LOW>;
++			default-state = "off";
 +		};
 +
 +		led_status_green: led-1 {
 +			label = "green:status";
-+			gpios = <&gpio 15 GPIO_ACTIVE_HIGH>;
++			gpios = <&gpio 11 GPIO_ACTIVE_LOW>;
 +			default-state = "off";
 +		};
 +	};
@@ -241,7 +241,7 @@
 +			};
 +
 +			partition@280000 {
-+				label = "factory";
++				label = "Factory";
 +				reg = <0x280000 0x100000>;
 +			};
 +
@@ -252,7 +252,7 @@
 +
 +			partition@580000 {
 +				label = "ubi";
-+				reg = <0x580000 0x7200000>;
++				reg = <0x580000 0x7a80000>;
 +				compatible = "linux,ubi";
 +			};
 +		};
@@ -270,8 +270,8 @@
 --- /dev/null
 +++ b/tplink_wma301_env
 @@ -0,0 +1,54 @@
-+ipaddr=192.168.6.1
-+serverip=192.168.6.254
++ipaddr=192.168.1.1
++serverip=192.168.1.254
 +loadaddr=0x46000000
 +console=earlycon=uart8250,mmio32,0x11002000 console=ttyS0
 +bootcmd=if pstore check ; then run boot_recovery ; else run boot_ubi ; fi

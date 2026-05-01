@@ -70,6 +70,7 @@ platform_do_upgrade() {
 	tplink,tl-xdr4288|\
     tplink,tl-xdr6086|\
     tplink,tl-xdr6088|\
+	tplink,wma301-stock|\
 	xiaomi,redmi-router-ax6000-ubootmod|\
 	xiaomi,mi-router-ax3000t-ubootmod|\
     xiaomi,mi-router-wr30u-ubootmod|\
@@ -108,14 +109,10 @@ platform_do_upgrade() {
 	routerich,ax3000-ubootmod|\
 	ruijie,rg-x60-new-ubootmod|\
 	tplink,tl-xtr8488|\
+	tplink,wma301-ubootmod|\
 	wirelesstag,zx7981pd-ubootmod|\
 	zyxel,ex5601-t0-ubootmod)
 		fit_do_upgrade "$1"
-		;;
-	tplink,wma301|\
-	tplink,wma301-ubootmod)
-		CI_KERNPART="fit"
-		nand_do_upgrade "$1"
 		;;
 	acer,predator-w6|\
 	acer,predator-w6d|\

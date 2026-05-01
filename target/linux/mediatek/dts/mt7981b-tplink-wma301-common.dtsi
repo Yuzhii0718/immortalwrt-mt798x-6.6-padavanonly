@@ -8,9 +8,6 @@
 #include "mt7981.dtsi"
 
 / {
-	model = "TP-Link WMA301 (stock layout)";
-	compatible = "tplink,wma301", "mediatek,mt7981";
-
 	aliases {
 		serial0 = &uart0;
 		led-boot = &led_status_red;
@@ -19,10 +16,8 @@
 		led-upgrade = &led_status_green;
 	};
 
-	chosen {
-		u-boot,bootconf = "config-1";
-		u-boot,version = "2023.07";
-		bootargs = "console=ttyS0,115200n1 loglevel=8 earlycon=uart8250,mmio32,0x11002000";
+	chosen: chosen {
+		stdout-path = "serial0:115200n8";
 	};
 
 	memory {
@@ -51,13 +46,13 @@
 		led_status_red: red {
 			function = LED_FUNCTION_STATUS;
 			color = <LED_COLOR_ID_RED>;
-			gpios = <&pio 14 GPIO_ACTIVE_HIGH>;
+			gpios = <&pio 12 GPIO_ACTIVE_LOW>;
 		};
 
 		led_status_green: green {
 			function = LED_FUNCTION_STATUS;
 			color = <LED_COLOR_ID_GREEN>;
-			gpios = <&pio 15 GPIO_ACTIVE_HIGH>;
+			gpios = <&pio 11 GPIO_ACTIVE_LOW>;
 		};
 	};
 };
@@ -97,7 +92,7 @@
 	pinctrl-0 = <&spi0_flash_pins>;
 	status = "okay";
 
-	spi_nand@0 {
+	spi_nand: flash@0 {
 		compatible = "spi-nand";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -107,11 +102,7 @@
 		spi-tx-bus-width = <4>;
 		spi-rx-bus-width = <4>;
 
-		mediatek,nmbm;
-        mediatek,bmt-max-ratio = <1>;
-        mediatek,bmt-max-reserved-blocks = <64>;
-
-		partitions {
+		partitions: partitions {
 			compatible = "fixed-partitions";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -136,10 +127,8 @@
 					#address-cells = <1>;
 					#size-cells = <1>;
 
-					macaddr_wifi: macaddr@4 {
-						compatible = "mac-base";
-						reg = <0x4 0x6>;
-						#nvmem-cell-cells = <1>;
+					eeprom_art_0: eeprom@0 {
+						reg = <0x0 0x1000>;
 					};
 
 					macaddr_lan: macaddr@24 {
@@ -152,10 +141,6 @@
 						compatible = "mac-base";
 						reg = <0x2a 0x6>;
 						#nvmem-cell-cells = <1>;
-					};
-
-					eeprom_art_1000: eeprom@1000 {
-						reg = <0x1000 0x200>;
 					};
 				};
 			};
@@ -170,12 +155,6 @@
 				label = "fip";
 				reg = <0x0380000 0x0200000>;
 				read-only;
-			};
-
-			partition@580000 {
-				label = "ubi";
-				compatible = "linux,ubi";
-				reg = <0x0580000 0x7200000>;
 			};
 		};
 	};
@@ -253,20 +232,7 @@
 };
 
 &wifi {
-	nvmem-cells = <&eeprom_art_1000>;
+	nvmem-cells = <&eeprom_art_0>;
 	nvmem-cell-names = "eeprom";
 	status = "okay";
-
-
-	band@0 {
-		reg = <0>;
-		nvmem-cells = <&macaddr_wifi 0>;
-		nvmem-cell-names = "mac-address";
-	};
-
-	band@1 {
-		reg = <1>;
-		nvmem-cells = <&macaddr_wifi 1>;
-		nvmem-cell-names = "mac-address";
-	};
 };
