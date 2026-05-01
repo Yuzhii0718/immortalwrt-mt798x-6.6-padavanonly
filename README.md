@@ -1,6 +1,9 @@
 <img src="https://avatars.githubusercontent.com/u/53193414?s=200&v=4" alt="logo" width="200" height="200" align="right">
 
 # Project ImmortalWrt
+- [ImmortalWrt-mt798x-6.6](https://github.com/padavanonly/immortalwrt-mt798x-6.6)
+
+In this branch, bump the kernel version 6.6.95 to 6.6.13x, and other updates.
 
 ImmortalWrt is a fork of [OpenWrt](https://openwrt.org), with more packages ported, more devices supported, default optimized profiles and localization modifications for mainland China users.<br/>
 Compared to upstream, we allow to use (non-upstreamable) modifications/hacks to provide better feature/performance/support.
@@ -60,14 +63,19 @@ To build your own firmware you need a GNU/Linux, BSD or macOS system (case sensi
   4. Run `./scripts/feeds install -a` to install symlinks for all obtained packages into package/feeds/
   5. Copy the configuration file for your device from the `defconfig` directory to the project root directory and rename it `.config`
      
-     ```
+     ```bash
      # MT7981
      cp -f defconfig/mt7981-ax3000.config .config
 
      # MT7986
      cp -f defconfig/mt7986-ax6000.config .config
+     ```
      
-  6. Run `make` to build your firmware. This will download all sources, build the cross-compile toolchain and then cross-compile the GNU/Linux kernel & all chosen applications for your target system.
+  6. Run `make menuconfig` to open the configuration menu, where you can customize the build configuration, such as choosing the target system, target profile, and packages to include in the firmware. After making your selections, save and exit the menu.
+  7. Run `make download -j$(nproc)` to download all sources. This will download the GNU/Linux kernel, toolchain and all chosen applications for your target system. You can also run `make download -j$(nproc) V=s` to see the details of the downloading process.
+  8. Run `make` to build your firmware. This will download all sources, build the cross-compile toolchain and then cross-compile the GNU/Linux kernel & all chosen applications for your target system.
+
+  > If you build first time, recommend to run `make -j1 V=s` to see the details of the building process, which is helpful for debugging. After you get familiar with the build system, you can run `make -j$(nproc)` to speed up the building process.
 
   ### Related Repositories
   The main repository uses multiple sub-repositories to manage packages of different categories. All packages are installed via the OpenWrt package manager called opkg. If you're looking to develop the web interface or port packages to ImmortalWrt, please find the fitting repository below.
