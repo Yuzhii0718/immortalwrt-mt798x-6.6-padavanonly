@@ -1,0 +1,20 @@
+diff -rupw warp/warp_main.c warp-new/warp_main.c
+--- warp/warp_main.c
++++ warp-new/warp_main.c
+@@ -72,8 +72,14 @@ static struct warp_ctrl sys_wc;
+ */
+ static const struct of_device_id warp_of_ids[] = {
+ 	{	.compatible = "mediatek,wed", },
+-	{	.compatible = "mediatek,wed2", },
+-	{	.compatible = "mediatek,wed3", },
++	/*
++	 * "mediatek,wed2" and "mediatek,wed3" are intentionally NOT listed here.
++	 * They are used only for per-entry sw_conf lookup via
++	 * of_find_compatible_node() in warp_get_swconf_from_dts().
++	 * Listing them would cause the platform bus to auto-probe those
++	 * nodes, which always fails with "warp is full" because each
++	 * platform_driver only has one warp_entry slot available.
++	 */
+ 	{ },
+ };
+ 
