@@ -51,9 +51,12 @@ endef
 
 define Package/mtwifi-wapp/install
 	$(INSTALL_DIR) $(1)/sbin
+	$(INSTALL_DIR) $(1)/usr/lib
 	$(INSTALL_DIR) $(1)/etc/map/
 	$(INSTALL_DIR) $(1)/etc/hotplug.d/iface/
 
+	$(INSTALL_BIN) ./files/wapp/libs/libcrypto.so.1.1 $(1)/usr/lib/
+	$(INSTALL_BIN) ./files/wapp/libs/libssl.so.1.1 $(1)/usr/lib/
 	$(INSTALL_BIN) ./files/wapp/100-startwapp $(1)/etc/hotplug.d/iface/
 	$(INSTALL_BIN) ./files/wapp/startwapp.sh $(1)/sbin/
 	$(INSTALL_BIN) ./files/wapp/bs20 $(1)/sbin/
