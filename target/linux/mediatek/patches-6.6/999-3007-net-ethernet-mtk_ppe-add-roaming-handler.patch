@@ -281,14 +281,12 @@ index 193093b..1b198cb 100644
 +
 +	return 0;
 +}
-diff --git a/drivers/net/ethernet/mediatek/mtk_ppe.h b/drivers/net/ethernet/mediatek/mtk_ppe.h
-index 87b8223..e06d757 100644
 --- a/drivers/net/ethernet/mediatek/mtk_ppe.h
 +++ b/drivers/net/ethernet/mediatek/mtk_ppe.h
-@@ -350,6 +350,8 @@ struct mtk_ppe {
- struct mtk_ppe *mtk_ppe_init(struct mtk_eth *eth, void __iomem *base, int index);
+@@ -350,6 +350,8 @@
  
  void mtk_ppe_deinit(struct mtk_eth *eth);
+ void mtk_ppe_update_mtu(struct mtk_ppe *ppe, int mtu);
 +int mtk_ppe_roaming_start(struct mtk_eth *eth);
 +int mtk_ppe_roaming_stop(struct mtk_eth *eth);
  void mtk_ppe_start(struct mtk_ppe *ppe);
