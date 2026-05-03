@@ -1,0 +1,22 @@
+From c2949064f2b702266dcc6779edc8a4ba2acec595 Mon Sep 17 00:00:00 2001
+From: Yuzhii0718 <admin@yuzhii0718.eu.org>
+Date: Sun, 3 May 2026 17:33:26 +0800
+Subject: [PATCH] mediatek: mtk_eth_soc: Readd PPE number retrieval in mtk_open
+
+---
+ mtk_eth_soc.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 815b036..b463898 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -4262,6 +4262,8 @@ static int mtk_open(struct net_device *dev)
+ 	struct mtk_mac *target_mac;
+ 	int i, err, mtu, ppe_num;
+ 
++	ppe_num = eth->soc->ppe_num;
++
+ 	err = phylink_of_phy_connect(mac->phylink, mac->of_node, 0);
+ 	if (err) {
+ 		netdev_err(dev, "%s: could not attach PHY: %d\n", __func__,
