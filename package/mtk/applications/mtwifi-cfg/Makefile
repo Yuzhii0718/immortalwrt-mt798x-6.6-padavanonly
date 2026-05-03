@@ -20,6 +20,14 @@ define Package/mtwifi-cfg
   DEPENDS:=+iwinfo +wifi-dats +lua-cjson +datconf-lua  
 endef
 
+define Package/mtwifi-wapp
+	SECTION:=MTK Properties
+	CATEGORY:=MTK Properties
+	SUBMENU:=Applications
+	TITLE:=mtwifi wapp scripts for mt798x
+	DEPENDS:=+mtwifi-cfg
+endef
+
 define Build/Compile
 endef
 
@@ -41,4 +49,23 @@ define Package/mtwifi-cfg/install
 	$(INSTALL_DATA) ./files/hotplug/10-mtwifi-detect $(1)/etc/hotplug.d/net/
 endef
 
+define Package/mtwifi-wapp/install
+	$(INSTALL_DIR) $(1)/sbin
+	$(INSTALL_DIR) $(1)/etc/map/
+	$(INSTALL_DIR) $(1)/etc/hotplug.d/iface/
+
+	$(INSTALL_BIN) ./files/wapp/100-startwapp $(1)/etc/hotplug.d/iface/
+	$(INSTALL_BIN) ./files/wapp/startwapp.sh $(1)/sbin/
+	$(INSTALL_BIN) ./files/wapp/bs20 $(1)/sbin/
+	$(INSTALL_BIN) ./files/wapp/wapp $(1)/sbin/
+	$(INSTALL_BIN) ./files/wapp/wappctrl $(1)/sbin/
+	$(INSTALL_BIN) ./files/wapp/setbssid $(1)/sbin/
+	$(INSTALL_BIN) ./files/wapp/steeringsta $(1)/sbin/
+	$(INSTALL_DATA) ./files/wapp/mapd_cfg $(1)/etc/map/
+	$(INSTALL_DATA) ./files/wapp/wapp_ap.conf $(1)/etc/
+	$(INSTALL_DATA) ./files/wapp/wapp_ap_ra0.conf $(1)/etc/
+	$(INSTALL_DATA) ./files/wapp/1905d.cfg $(1)/etc/map/
+endef
+
 $(eval $(call BuildPackage,mtwifi-cfg))
+$(eval $(call BuildPackage,mtwifi-wapp))
