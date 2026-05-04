@@ -65,6 +65,23 @@ function progressbar(value, max, byte) {
 	}, E('div', { 'style': 'width:%.2f%%'.format(pc) }));
 }
 
+function formatCPUUsage(stats) {
+	var text = stats.CPU_USED || '0%';
+
+	if (stats.CPU_CORES_USED) {
+		var cores = [];
+		for (var core in stats.CPU_CORES_USED) {
+			if (stats.CPU_CORES_USED.hasOwnProperty(core))
+				cores.push(core + ': ' + stats.CPU_CORES_USED[core]);
+		}
+
+		if (cores.length > 0)
+			text += ' (' + cores.join(', ') + ')';
+	}
+
+	return text;
+}
+
 function renderStatus(stats) {
 	var spanTemp = '<em><span style="color:%s"><strong>%s</strong></span></em>';
 	var renderHTML = [];
@@ -109,10 +126,37 @@ return view.extend({
 					var tds = [ 'fastpath_state', 'fullcone_state', 'tcpcca_state' ];
 					for (var i in tds) {
 						var view = document.getElementById(tds[i]);
-						view.innerHTML = stats[i];
+						if (view)
+							view.innerHTML = stats[i];
 					}
 				});
 			});
+
+			poll.add(function () {
+				return L.resolveDefault(getMTKPPEStatus()).then(function (res) {
+					var stat = res[0] || {};
+					var ppe_num = parseInt(stat.PPE_NUM);
+
+					if (!isNaN(ppe_num)) {
+						for (var i = 0; i < ppe_num; i++) {
+							var ppe_bar = document.getElementById(`ppe${i}_entry`);
+							if (ppe_bar)
+								ppe_bar.innerHTML = E('td', {},
+									progressbar(stat[`BIND_PPE${i}`], stat[`ALL_PPE${i}`])).innerHTML;
+						}
+					}
+
+					var conntrack_bar = document.getElementById('conntrack_state');
+					if (conntrack_bar)
+						conntrack_bar.innerHTML = E('em', {},
+							progressbar(parseInt(stat.Conntrack_Count), parseInt(stat.Conntrack_Max))
+						).innerHTML;
+
+					var cpu_bar = document.getElementById('cpu_usage_state');
+					if (cpu_bar)
+						cpu_bar.innerHTML = E('em', {}, formatCPUUsage(stat)).innerHTML;
+				});
+			}, 3);
 
 			var acc_status = E('table', { 'class': 'table', 'width': '100%', 'cellspacing': '10' }, [
 				E('tr', {}, [
@@ -126,21 +170,18 @@ return view.extend({
 				E('tr', {}, [
 					E('td', { 'width': '33%' }, _('TCP CCA')),
 					E('td', { 'id': 'tcpcca_state' }, E('em', {}, _('Collecting data...')))
+				]),
+				E('tr', {}, [
+					E('td', { 'width': '33%' }, _('Conntrack')),
+					E('td', { 'id': 'conntrack_state' }, E('em', {}, _('Collecting data...')))
+				]),
+				E('tr', {}, [
+					E('td', { 'width': '33%' }, _('CPU Usage')),
+					E('td', { 'id': 'cpu_usage_state' }, E('em', {}, _('Collecting data...')))
 				])
 			]);
 
 			if (ppe_stats.hasOwnProperty('PPE_NUM')) {
-				poll.add(function () {
-					return L.resolveDefault(getMTKPPEStatus()).then(function (res) {
-						var ppe_num = parseInt(res[0].PPE_NUM);
-						for (var i=0; i<ppe_num; i++) {
-							var ppe_bar = document.getElementById(`ppe${i}_entry`);
-							ppe_bar.innerHTML = E('td', {},
-							progressbar(res[0][`BIND_PPE${i}`], res[0][`ALL_PPE${i}`])).innerHTML;
-						}
-					});
-				}, 3);
-
 				var ppe_num = parseInt(ppe_stats.PPE_NUM);
 
 				for (var i=0; i<ppe_num; i++) {
@@ -157,6 +198,13 @@ return view.extend({
 				acc_status
 			]);
 		}
+
+		/* Mark user edited */
+		s = m.section(form.NamedSection, 'global', 'turboacc');
+		o = s.option(form.HiddenValue, 'set');
+		o.load = (/* ... */) => { return 1 };
+		o.readonly = true;
+		o.rmempty = false;
 
 		s = m.section(form.NamedSection, 'config', 'turboacc');
 
@@ -218,12 +266,12 @@ return view.extend({
 		o.default = o.enabled;
 		o.rmempty = false;
 		o.depends('fastpath_mh_eth_hnat', '1');
-		
+
 		o = s.option(form.Value, 'fastpath_mh_eth_hnat_ap', _('Enable AP Mode'),
 			_('Fill in ip to enable AP Mode(reboot needed)'));
 		o.optional = true;
 		o.depends('fastpath_mh_eth_hnat', '1');
-		
+
 		o = s.option(form.Value, 'fastpath_mh_eth_hnat_bind_rate', _('HNAT bind rate threshold (pps)'),
 			_('The smaller the threshold, the easier it is for the connection to be accelerated.'));
 		o.optional = true;
@@ -252,7 +300,7 @@ return view.extend({
 			o.value(i);
 		o.default = 'cubic';
 		o.rmempty = false;
-        
+
 		return m.render();
 	}
 });
