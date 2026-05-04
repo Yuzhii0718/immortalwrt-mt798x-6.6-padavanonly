@@ -375,8 +375,8 @@
 +part_default=production
 +part_recovery=recovery
 +reset_factory=ubi part ubi ; mw $loadaddr 0x0 0x800 ; ubi write $loadaddr ubootenv 0x800 ; ubi write $loadaddr ubootenv2 0x800
-+mtd_write_fip=mtd erase fip && mtd write fip $loadaddr
-+mtd_write_bl2=mtd erase bl2 && mtd write bl2 $loadaddr
++mtd_write_fip=mtd erase FIP && mtd write FIP $loadaddr
++mtd_write_bl2=mtd erase BL2 && mtd write BL2 $loadaddr
 +ubi_create_env=ubi check ubootenv || ubi create ubootenv 0x100000 dynamic || run ubi_format ; ubi check ubootenv2 || ubi create ubootenv2 0x100000 dynamic || run ubi_format
 +ubi_format=ubi detach ; mtd erase ubi && ubi part ubi ; reset
 +ubi_prepare_rootfs=if ubi check rootfs_data ; then else if env exists rootfs_data_max ; then ubi create rootfs_data $rootfs_data_max dynamic || ubi create rootfs_data - dynamic ; else ubi create rootfs_data - dynamic ; fi ; fi
