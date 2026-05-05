@@ -99,7 +99,16 @@ local function get_cpu_usage_all()
 	end
 	last_stats.total = current.total
 
-	for core_id, core_current in pairs(current.cores) do
+	-- Sort core IDs to ensure consistent order (CPU0, CPU1, CPU2, ...)
+	local core_ids = {}
+	for core_id, _ in pairs(current.cores) do
+		table.insert(core_ids, tonumber(core_id))
+	end
+	table.sort(core_ids)
+
+	for _, core_id_num in ipairs(core_ids) do
+		local core_id = tostring(core_id_num)
+		local core_current = current.cores[core_id]
 		local core_last = last_stats.cores[core_id]
 		if not core_last then
 			result.core_usage[string.format("CPU%d", core_id)] = "0%"
@@ -115,6 +124,17 @@ local function get_cpu_usage_all()
 		end
 		last_stats.cores[core_id] = core_current
 	end
+
+	-- Also produce an ordered array of core usage strings for stable JSON order
+	local core_order = {}
+	for _, core_id_num in ipairs(core_ids) do
+		local cid = tostring(core_id_num)
+		local label = string.format("CPU%d", core_id_num)
+		local usage = result.core_usage[label] or "0%"
+		table.insert(core_order, label ..": ".. usage)
+	end
+
+	result.core_order = core_order
 
 	save_cache(last_stats)
 	return result
