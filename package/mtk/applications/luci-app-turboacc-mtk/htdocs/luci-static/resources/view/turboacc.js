@@ -69,14 +69,30 @@ function formatCPUUsage(stats) {
 	var text = stats.CPU_USED || '0%';
 
 	if (stats.CPU_CORES_USED) {
-		var cores = [];
-		for (var core in stats.CPU_CORES_USED) {
-			if (stats.CPU_CORES_USED.hasOwnProperty(core))
-				cores.push(core + ': ' + stats.CPU_CORES_USED[core]);
+		// If backend provided an ordered array, use it directly
+		if (Array.isArray(stats.CPU_CORES_USED)) {
+			if (stats.CPU_CORES_USED.length > 0)
+				text += ' (' + stats.CPU_CORES_USED.join(', ') + ')';
+		} else {
+			// Otherwise fallback to object: collect keys, sort by numeric CPU index
+			var cores = [];
+			for (var core in stats.CPU_CORES_USED) {
+				if (stats.CPU_CORES_USED.hasOwnProperty(core))
+					cores.push(core);
+			}
+			cores.sort(function (a, b) {
+				var na = parseInt(a.replace(/^CPU/i, ''), 10);
+				var nb = parseInt(b.replace(/^CPU/i, ''), 10);
+				return na - nb;
+			});
+			var coreItems = [];
+			for (var i = 0; i < cores.length; i++) {
+				var k = cores[i];
+				coreItems.push(k + ': ' + stats.CPU_CORES_USED[k]);
+			}
+			if (coreItems.length > 0)
+				text += ' (' + coreItems.join(', ') + ')';
 		}
-
-		if (cores.length > 0)
-			text += ' (' + cores.join(', ') + ')';
 	}
 
 	return text;
