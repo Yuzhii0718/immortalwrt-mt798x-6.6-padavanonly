@@ -2125,7 +2125,7 @@ endef
 TARGET_DEVICES += sn_r1
 
 define Device/bt_r320
-  DEVICE_VENDOR := Globitel
+  DEVICE_VENDOR := BT
   DEVICE_MODEL := BT-R320
   DEVICE_DTS := mt7981b-bt-r320
   DEVICE_DTS_DIR := ../dts
@@ -2138,8 +2138,8 @@ endef
 TARGET_DEVICES += bt_r320
 
 define Device/bt_rb300
-  DEVICE_VENDOR := Globitel
-  DEVICE_MODEL := BT-R320
+  DEVICE_VENDOR := BT
+  DEVICE_MODEL := BT-RB300
   DEVICE_DTS := mt7981b-bt-rb300
   DEVICE_DTS_DIR := ../dts
   DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
