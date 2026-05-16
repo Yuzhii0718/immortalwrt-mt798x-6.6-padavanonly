@@ -271,8 +271,8 @@ mediatek_setup_macs()
 		label_mac=$wan_mac
 		;;
     aigo,s21)
-		lan_mac=$(mmc_get_mac_binary factory 0x24)
-		wan_mac=$(mmc_get_mac_binary factory 0x2a)
+		lan_mac=$(mmc_get_mac_binary factory 0x2a)
+		wan_mac=$(mmc_get_mac_binary factory 0x24)
 		label_mac=$wan_mac
 		;;
 	xiaomi,mi-router-ax3000t|\
