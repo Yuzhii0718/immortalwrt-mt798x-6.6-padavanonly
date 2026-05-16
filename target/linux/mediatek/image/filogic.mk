@@ -662,6 +662,17 @@ define Device/philips_hy3000
 endef
 TARGET_DEVICES += philips_hy3000
 
+define Device/aigo_s21
+  DEVICE_VENDOR := Aigo
+  DEVICE_MODEL := S21
+  DEVICE_DTS := mt7981b-aigo-s21
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += aigo,s21
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware automount coremark blkid fdisk f2fsck mkf2fs kmod-mmc luci-app-ksmbd luci-i18n-ksmbd-zh-cn
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += aigo_s21
+
 define Device/cmcc_rax3000m_common
   DEVICE_DTS_OVERLAY := mt7981b-cmcc-rax3000m-nand
   DEVICE_DTS_DIR := ../dts
