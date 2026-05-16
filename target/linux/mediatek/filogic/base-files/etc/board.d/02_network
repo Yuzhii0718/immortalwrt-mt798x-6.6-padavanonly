@@ -39,6 +39,9 @@ mediatek_setup_interfaces()
 	arcadyan,mozart)
 		ucidef_set_interfaces_lan_wan "lan0 eth1" eth2
 		;;
+    aigo,s21)
+		ucidef_set_interfaces_lan_wan "lan1 lan2" eth1
+		;;
 	airpi,ap3000m)
 		ucidef_set_interfaces_lan_wan eth0 eth1
 		;;
@@ -267,6 +270,11 @@ mediatek_setup_macs()
 		wan_mac=$(mmc_get_mac_binary factory 0x24)
 		label_mac=$wan_mac
 		;;
+    aigo,s21)
+		lan_mac=$(mmc_get_mac_binary factory 0x24)
+		wan_mac=$(mmc_get_mac_binary factory 0x2a)
+		label_mac=$wan_mac
+		;;
 	xiaomi,mi-router-ax3000t|\
 	xiaomi,mi-router-ax3000t-mtkuboot|\
 	xiaomi,mi-router-ax3000t-ubootmod|\
@@ -281,6 +289,7 @@ mediatek_setup_macs()
 		lan_mac=$(mmc_get_mac_binary factory 0x2A)
 		wan_mac=$(mmc_get_mac_binary factory 0x04)
 		;;
+
 	yuncore,ax835)
 		label_mac=$(mtd_get_mac_binary "Factory" 0x4)
 		;;
