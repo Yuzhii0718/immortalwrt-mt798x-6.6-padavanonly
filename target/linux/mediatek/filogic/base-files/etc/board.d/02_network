@@ -274,11 +274,6 @@ mediatek_setup_macs()
         wan_mac=$(mmc_get_mac_binary factory 0x24)
 		lan_mac=$(mmc_get_mac_binary factory 0x2a)
 		wifi_mac=$(mmc_get_mac_binary factory 0x04)
-		sed -i '/MacAddress=$wifi_mac/d' /etc/wireless/mediatek/mt7981.dbdc.b0.dat
-                echo "MacAddress=$wifi_mac" >> /etc/wireless/mediatek/mt7981.dbdc.b0.dat
-                wifi_mac="$(macaddr_add $wifi_mac 1)"
-                sed -i '/MacAddress=$wifi_mac/d' /etc/wireless/mediatek/mt7981.dbdc.b1.dat
-                echo "MacAddress=$wifi_mac" >> /etc/wireless/mediatek/mt7981.dbdc.b1.dat
 		;;
 	xiaomi,mi-router-ax3000t|\
 	xiaomi,mi-router-ax3000t-mtkuboot|\
