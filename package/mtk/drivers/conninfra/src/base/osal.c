@@ -45,6 +45,9 @@
 #include <linux/mtd/map.h>
 #include <linux/mtd/concat.h>
 #include <linux/mtd/partitions.h>
+#if IS_ENABLED(CONFIG_MTD_UBI)
+#include <linux/mtd/ubi.h>
+#endif
 #endif /* CONFIG_MTD */
 #include "osal.h"
 
@@ -94,26 +97,101 @@ int get_default_bin_image_file(char *path)
 	return 0;
 }
 
+#ifdef CONFIG_MTD
+/*
+ * Flash layouts which moved the factory data into a UBI volume (for example
+ * the "OpenWrt UBI layout" used on several filogic boards) no longer provide
+ * an MTD partition named "Factory"/"factory". Fall back to reading the UBI
+ * volume carrying that name so the connectivity EEPROM can still be read.
+ */
+#define OSAL_UBI_FACTORY_VOL	"factory"
+#define OSAL_UBI_MAX_DEVICES	32
+
+#if IS_ENABLED(CONFIG_MTD_UBI)
+static int osal_ubi_read_volume_nm(const char *volname, loff_t from, size_t len,
+				   unsigned char *buf)
+{
+	struct ubi_volume_desc *desc;
+	struct ubi_volume_info vi;
+	size_t done = 0;
+	int ubi_num, err = -ENODEV;
+
+	for (ubi_num = 0; ubi_num < OSAL_UBI_MAX_DEVICES; ubi_num++) {
+		desc = ubi_open_volume_nm(ubi_num, volname, UBI_READONLY);
+		if (IS_ERR(desc))
+			continue;
+
+		ubi_get_volume_info(desc, &vi);
+
+		err = 0;
+		while (done < len) {
+			int lnum = (from + done) / vi.usable_leb_size;
+			int offs = (from + done) % vi.usable_leb_size;
+			size_t chunk = len - done;
+
+			if (chunk > (size_t)(vi.usable_leb_size - offs))
+				chunk = vi.usable_leb_size - offs;
+
+			err = ubi_leb_read(desc, lnum, buf + done, offs, chunk, 0);
+			if (err)
+				break;
+			done += chunk;
+		}
+
+		ubi_close_volume(desc);
+		return err;
+	}
+
+	return err;
+}
+#else
+static int osal_ubi_read_volume_nm(const char *volname, loff_t from, size_t len,
+				   unsigned char *buf)
+{
+	return -ENODEV;
+}
+#endif
+
 void FlashRead(char *name, unsigned char *value, unsigned long offset, unsigned long size)
 {
-#ifdef CONFIG_MTD
 	int ret;
 	size_t rdlen;
 	struct mtd_info *mtd;
 
 	mtd = get_mtd_device_nm(name);
 	if (IS_ERR(mtd)) {
-		pr_err("Can't get mtd device!\n");
-		return;
-	} else {
-		ret = mtd_read(mtd, offset, size, &rdlen, value);
-		if (rdlen != size) {
-			pr_err("mtd_read: rdlen is not equal to size!\n");
-		}
-		put_mtd_device(mtd);
+		/* Some layouts use a lower-case partition/volume name */
+		mtd = get_mtd_device_nm("factory");
 	}
-#endif /* CONFIG_WIFI_MTD */
+
+	if (IS_ERR(mtd)) {
+		/*
+		 * No matching MTD partition, the data may live in a UBI volume
+		 * instead (MTD -> UBI layout migration). Both spellings are
+		 * tried since the volume name depends on how the UBI image /
+		 * volume was created.
+		 */
+		ret = osal_ubi_read_volume_nm(OSAL_UBI_FACTORY_VOL, offset, size, value);
+		if (ret)
+			ret = osal_ubi_read_volume_nm("Factory", offset, size, value);
+		if (ret)
+			pr_err("Can't get mtd device/ubi volume \"%s\" (ret=%d)!\n",
+			       name, ret);
+		return;
+	}
+
+	ret = mtd_read(mtd, offset, size, &rdlen, value);
+	if (rdlen != size) {
+		pr_err("mtd_read: rdlen is not equal to size!\n");
+	}
+	put_mtd_device(mtd);
 }
+#else /* CONFIG_MTD */
+void FlashRead(char *name, unsigned char *value, unsigned long offset, unsigned long size)
+{
+	pr_err("FlashRead: MTD support not enabled!\n");
+}
+#endif /* CONFIG_MTD */
 
 void FlashWrite(char *name, unsigned char *p, unsigned long a, unsigned long b)
 {

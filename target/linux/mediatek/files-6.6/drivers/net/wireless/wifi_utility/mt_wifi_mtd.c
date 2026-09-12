@@ -10,8 +10,66 @@
 #include <linux/mtd/map.h>
 #include <linux/mtd/concat.h>
 #include <linux/mtd/partitions.h>
+#if IS_ENABLED(CONFIG_MTD_UBI)
+#include <linux/mtd/ubi.h>
+#endif
 #if defined (CONFIG_MIPS)
 #include <asm/addrspace.h>
+#endif
+
+/*
+ * Flash layouts which moved the factory data into a UBI volume (for example
+ * the "OpenWrt UBI layout" used on several filogic boards) no longer provide
+ * an MTD partition named "Factory"/"factory". The proprietary WiFi driver
+ * still has to read its EEPROM from there, so fall back to reading the UBI
+ * volume carrying that name when no matching MTD partition was found.
+ */
+#define WIFI_UBI_FACTORY_VOL	"factory"
+#define WIFI_UBI_MAX_DEVICES	32
+
+#if IS_ENABLED(CONFIG_MTD_UBI)
+static int mt_ubi_read_volume_nm(const char *volname, loff_t from, size_t len,
+				 unsigned char *buf)
+{
+	struct ubi_volume_desc *desc;
+	struct ubi_volume_info vi;
+	size_t done = 0;
+	int ubi_num, err = -ENODEV;
+
+	for (ubi_num = 0; ubi_num < WIFI_UBI_MAX_DEVICES; ubi_num++) {
+		desc = ubi_open_volume_nm(ubi_num, volname, UBI_READONLY);
+		if (IS_ERR(desc))
+			continue;
+
+		ubi_get_volume_info(desc, &vi);
+
+		err = 0;
+		while (done < len) {
+			int lnum = (from + done) / vi.usable_leb_size;
+			int offs = (from + done) % vi.usable_leb_size;
+			size_t chunk = len - done;
+
+			if (chunk > (size_t)(vi.usable_leb_size - offs))
+				chunk = vi.usable_leb_size - offs;
+
+			err = ubi_leb_read(desc, lnum, buf + done, offs, chunk, 0);
+			if (err)
+				break;
+			done += chunk;
+		}
+
+		ubi_close_volume(desc);
+		return err;
+	}
+
+	return err;
+}
+#else
+static int mt_ubi_read_volume_nm(const char *volname, loff_t from, size_t len,
+				 unsigned char *buf)
+{
+	return -ENODEV;
+}
 #endif
 
 int mt_mtd_write_nm_wifi(char *name, loff_t to, size_t len, const u_char *buf)
@@ -27,8 +85,11 @@ int mt_mtd_write_nm_wifi(char *name, loff_t to, size_t len, const u_char *buf)
 	if (IS_ERR(mtd))
 		mtd = get_mtd_device_nm("factory");
 
-	if (IS_ERR(mtd))
-		return -1;
+	if (IS_ERR(mtd)) {
+		printk("warning: ra_mtd_write: no \"Factory\" partition, "
+		       "factory data is stored in read-only media\n");
+		return -ENODEV;
+	}
 
 	if (len > mtd->erasesize) {
 		put_mtd_device(mtd);
@@ -71,8 +132,6 @@ int mt_mtd_write_nm_wifi(char *name, loff_t to, size_t len, const u_char *buf)
 
 	ret = mtd_write(mtd, 0, mtd->erasesize, &wrlen, bak);
 
-
-
 	put_mtd_device(mtd);
 	kfree(bak);
 	return ret;
@@ -88,16 +147,29 @@ int mt_mtd_read_nm_wifi(char *name, loff_t from, size_t len, u_char *buf)
 
 	mtd = get_mtd_device_nm("Factory");
 
-        if (IS_ERR(mtd))
-                mtd = get_mtd_device_nm("factory");
+	if (IS_ERR(mtd))
+		mtd = get_mtd_device_nm("factory");
 
-        if (IS_ERR(mtd))
-                return -1;
+	if (IS_ERR(mtd)) {
+		/*
+		 * No matching MTD partition exists, the factory data may live
+		 * in a UBI volume instead (MTD -> UBI layout migration). Both
+		 * spellings are tried since the volume name depends on how the
+		 * UBI image / volume was created.
+		 */
+		ret = mt_ubi_read_volume_nm(WIFI_UBI_FACTORY_VOL, from, len, buf);
+		if (ret)
+			ret = mt_ubi_read_volume_nm("Factory", from, len, buf);
+		if (ret)
+			printk("warning: ra_mtd_read_nm: no \"Factory\" partition/volume, ret=%d\n",
+			       ret);
+		return ret;
+	}
 
 	ret = mtd_read(mtd, from, len, &rdlen, buf);
 
 	if (rdlen != len)
-			printk("warning: ra_mtd_read_nm: rdlen is not equal to len\n");
+		printk("warning: ra_mtd_read_nm: rdlen is not equal to len\n");
 
 	put_mtd_device(mtd);
 
