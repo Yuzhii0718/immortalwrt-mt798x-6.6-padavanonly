@@ -5,6 +5,8 @@
 #include <linux/kernel.h>
 #include <linux/err.h>
 #include <linux/slab.h>
+#include <linux/of.h>
+#include <linux/of_net.h>
 #include <asm/io.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/map.h>
@@ -138,6 +140,73 @@ int mt_mtd_write_nm_wifi(char *name, loff_t to, size_t len, const u_char *buf)
 }
 EXPORT_SYMBOL(mt_mtd_write_nm_wifi);
 
+
+/*
+ * The proprietary WiFi driver has no device tree support of its own, while the
+ * DTS describes the per-band MAC addresses the same way it does for the mt76
+ * driver, e.g.:
+ *
+ *	&wifi {
+ *		band@0 {
+ *			nvmem-cells = <&art_ethaddr 2>;
+ *			nvmem-cell-names = "mac-address";
+ *		};
+ *		band@1 {
+ *			nvmem-cells = <&art_ethaddr 3>;
+ *			nvmem-cell-names = "mac-address";
+ *		};
+ *	};
+ *
+ * Read back such a MAC (nvmem cell or plain DT property) so the driver can use
+ * it instead of the (often unpopulated) value in the factory EEPROM.
+ *
+ * Returns 0 on success, a negative errno otherwise.
+ */
+int mt_wifi_get_band_mac(int band, unsigned char *mac)
+{
+	struct device_node *wifi_np, *band_np;
+	int ret = -ENODEV;
+	u32 reg;
+
+	if (!mac || band < 0)
+		return -EINVAL;
+
+	/*
+	 * The WiFi node is /soc/wifi@18000000 (mediatek,mt798x-wmac), its
+	 * per-band children are named band@N with "reg = <N>".
+	 *
+	 * Note: of_get_child_by_name() must not be used here, it compares
+	 * names with of_node_name_eq() which ignores the unit address, so
+	 * looking up "band@0" would never match. Match reg instead.
+	 */
+	for_each_node_by_name(wifi_np, "wifi") {
+		for_each_child_of_node(wifi_np, band_np) {
+			if (!of_property_read_u32(band_np, "reg", &reg) &&
+			    reg == (u32)band)
+				break;
+		}
+
+		if (!band_np)
+			continue;
+
+		ret = of_get_mac_address(band_np, mac);
+		of_node_put(band_np);
+
+		if (!ret) {
+			of_node_put(wifi_np);
+			pr_info("mt_wifi: band %d MAC from device tree = %pM\n",
+				band, mac);
+			return 0;
+		}
+	}
+	of_node_put(wifi_np);
+
+	pr_info("mt_wifi: no MAC address from device tree for band %d (err %d)\n",
+		band, ret);
+
+	return ret;
+}
+EXPORT_SYMBOL(mt_wifi_get_band_mac);
 
 int mt_mtd_read_nm_wifi(char *name, loff_t from, size_t len, u_char *buf)
 {

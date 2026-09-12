@@ -233,6 +233,37 @@ INT rtmp_read_txpwr_from_eeprom(RTMP_ADAPTER *pAd)
 
 	========================================================================
 */
+#if defined(LINUX)
+extern int mt_wifi_get_band_mac(int band, unsigned char *mac);
+
+/*
+ * The factory EEPROM of some boards only carries the MediaTek reference MAC
+ * (e.g. 00:0C:43:xx:xx:xx) while the real address is stored elsewhere (like
+ * the "product_info" volume of Ruijie boards). OpenWrt describes such an
+ * address in the device tree - as it also does for the mt76 driver - so try
+ * to pick it up here.
+ *
+ * Only the first band is requested: this driver keeps a single
+ * pAd->CurrentAddress (the two bands share one card, see the profile merge in
+ * multi_profile_merge_mac_address()) and derives the MAC of the secondary
+ * interface / other BSSes from it (first byte + 2).
+ */
+static BOOLEAN RTMPGetMacFromDT(PRTMP_ADAPTER pAd, UCHAR *mac)
+{
+	USHORT i;
+
+	if (mt_wifi_get_band_mac(0, mac) != 0)
+		return FALSE;
+
+	for (i = 0; i < MAC_ADDR_LEN; i++) {
+		if (mac[i] != 0x00)
+			return TRUE;
+	}
+
+	return FALSE;
+}
+#endif /* LINUX */
+
 INT NICReadEEPROMParameters(RTMP_ADAPTER *pAd, RTMP_STRING *mac_addr)
 {
 	USHORT i, value = 0;
@@ -646,6 +677,15 @@ INT NICReadEEPROMParameters(RTMP_ADAPTER *pAd, RTMP_STRING *mac_addr)
 	MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "E2PROM MAC: ="MACSTR"\n",
 			 MAC2STR(pAd->PermanentAddress));
 
+#if defined(LINUX)
+	/* Unconditional so the chosen MAC source can always be verified */
+	pr_info("mt_wifi: MAC sources: local_admin=%d module_param=%s e2p="MACSTR"\n",
+			pAd->bLocalAdminMAC,
+			(mac_addr && strlen((RTMP_STRING *)mac_addr) == 17) ?
+				(RTMP_STRING *)mac_addr : "(none)",
+			MAC2STR(pAd->PermanentAddress));
+#endif /* LINUX */
+
 	/* Assign the actually working MAC Address */
 	if (pAd->bLocalAdminMAC) {
 		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
@@ -669,6 +709,13 @@ INT NICReadEEPROMParameters(RTMP_ADAPTER *pAd, RTMP_STRING *mac_addr)
 		}
 
 		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Use the MAC address what is assigned from Moudle Parameter.\n");
+#if defined(LINUX)
+	} else if (RTMPGetMacFromDT(pAd, pAd->CurrentAddress) == TRUE) {
+		COPY_MAC_ADDR(pAd->PermanentAddress, pAd->CurrentAddress);
+		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO,
+				 "Use the MAC address what is assigned from Device Tree: "MACSTR"\n",
+				 MAC2STR(pAd->CurrentAddress));
+#endif /* LINUX */
 	} else {
 		COPY_MAC_ADDR(pAd->CurrentAddress, pAd->PermanentAddress);
 		MTWF_DBG(pAd, DBG_CAT_HW, DBG_SUBCAT_ALL, DBG_LVL_INFO, "Use the MAC address what is assigned from EEPROM.\n");
