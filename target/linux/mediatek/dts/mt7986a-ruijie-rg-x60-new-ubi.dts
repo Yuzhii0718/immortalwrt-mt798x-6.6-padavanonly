@@ -1,0 +1,130 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+
+/dts-v1/;
+#include "mt7986a-ruijie-rg-x60-new.dtsi"
+
+/ {
+	compatible = "ruijie,rg-x60-new-ubi", "mediatek,mt7986a";
+	model = "Ruijie RG-X60 New (UBI)";
+};
+
+&chosen {
+	bootargs = "earlycon=uart8250,mmio32,0x11002000 console=ttyS0,115200n8 loglevel=8 root=/dev/fit0 rootwait";
+	rootdisk = <&ubi_rootdisk>;
+};
+
+&partitions {
+	/*
+	 * In this layout everything starting at 0x100000 is a single UBI
+	 * device; factory/FIP/u-boot-env data live in UBI volumes instead of
+	 * dedicated MTD partitions.
+	 *
+	 * partition@100000 has to be deleted (and re-created below) because the
+	 * stock "u-boot-env" node it originates from is flagged read-only, and
+	 * that flag would otherwise be inherited here. A read-only MTD device
+	 * makes UBI attach in read-only mode (see io_init() in
+	 * drivers/mtd/ubi/build.c), which prevents the rootfs data volume from
+	 * being created/formatted and results in a failed boot.
+	 */
+	/delete-node/ partition@100000;
+	/* Factory/FIP data live in UBI volumes (factory/fip) in this layout */
+	/delete-node/ partition@180000;
+	/delete-node/ partition@380000;
+	/* OEM partitions not used in this layout, remove them to avoid overlap */
+	/delete-node/ partition@580000;
+	/delete-node/ partition@600000;
+
+	partition@100000 {
+		reg = <0x100000 0x0>;
+		compatible = "linux,ubi";
+		label = "ubi";
+
+		volumes {
+			ubi_factory: ubi-volume-factory {
+				volname = "factory";
+				read-only;
+			};
+
+			ubi-volume-fip {
+				volname = "fip";
+			};
+
+			ubi_rootdisk: ubi-volume-fit {
+				volname = "fit";
+			};
+
+			ubi_ubootenv: ubi-volume-ubootenv {
+				volname = "ubootenv";
+			};
+
+			ubi_ubootenv2: ubi-volume-ubootenv2 {
+				volname = "ubootenv2";
+			};
+
+			ubi-volume-art {
+				volname = "product_info";
+				read-only;
+
+				nvmem-layout {
+					compatible = "u-boot,env";
+					env-size = <0x20000>;
+
+					art_ethaddr: ethaddr {
+						#nvmem-cell-cells = <1>;
+					};
+				};
+			};
+		};
+	};
+};
+
+&ubi_factory {
+	nvmem-layout {
+		compatible = "fixed-layout";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		eeprom_factory_0: eeprom@0 {
+			reg = <0x0 0x1000>;
+		};
+	};
+};
+
+&ubi_ubootenv {
+	nvmem-layout {
+		compatible = "u-boot,env-redundant-bool";
+	};
+};
+
+&ubi_ubootenv2 {
+	nvmem-layout {
+		compatible = "u-boot,env-redundant-bool";
+	};
+};
+
+&gmac0 {
+	nvmem-cells = <&art_ethaddr 1>;
+	nvmem-cell-names = "mac-address";
+};
+
+&gmac1 {
+	nvmem-cells = <&art_ethaddr 0>;
+	nvmem-cell-names = "mac-address";
+};
+
+&wifi {
+	status = "okay";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	nvmem-cells = <&eeprom_factory_0>;
+	nvmem-cell-names = "eeprom";
+
+	band@0 {
+		reg = <0>;
+
+		nvmem-cells = <&art_ethaddr (2)>;
+		nvmem-cell-names = "mac-address";
+	};
+};

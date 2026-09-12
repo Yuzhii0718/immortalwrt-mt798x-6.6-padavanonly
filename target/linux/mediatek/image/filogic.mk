@@ -2110,6 +2110,30 @@ define Device/ruijie_rg-x60-new-stock
 endef
 TARGET_DEVICES += ruijie_rg-x60-new-stock
 
+define Device/ruijie_rg-x60-new-ubi
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := RG-X60 New
+  DEVICE_VARIANT := (OpenWrt UBI layout)
+  DEVICE_DTS := mt7986a-ruijie-rg-x60-new-ubi
+  DEVICE_DTS_CONFIG := config@ruijie_x60_gsw_en8811h_phy
+  DEVICE_DTS_DIR := ../dts
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware \
+         kmod-phy-airoha-en8811h
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  UBOOTENV_IN_UBI := 1
+  IMAGES := sysupgrade.itb
+  KERNEL_INITRAMFS_SUFFIX := -recovery.itb
+  KERNEL := kernel-bin | gzip
+  KERNEL_INITRAMFS := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
+  IMAGE/sysupgrade.itb := append-kernel | \
+	fit gzip $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb external-static-with-rootfs | append-metadata
+endef
+TARGET_DEVICES += ruijie_rg-x60-new-ubi
+
 define Device/ruijie_rg-x60-new-ubootmod
   DEVICE_VENDOR := Ruijie
   DEVICE_MODEL := RG-X60 New
