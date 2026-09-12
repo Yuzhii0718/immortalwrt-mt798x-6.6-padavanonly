@@ -113,6 +113,8 @@ platform_do_upgrade() {
 	tplink,tl-xtr8488|\
 	tplink,wma301-ubootmod|\
 	wirelesstag,zx7981pd-ubootmod|\
+	zbtlink,zbt-z8103ax-c-ubootmod|\
+	zbtlink,zbt-z8103ax-ubi|\
 	zyxel,ex5601-t0-ubootmod)
 		fit_do_upgrade "$1"
 		;;

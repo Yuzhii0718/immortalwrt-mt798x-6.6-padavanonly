@@ -59,6 +59,7 @@ tplink,tl-xdr6088|\
 tplink,tl-xtr8488|\
 xiaomi,mi-router-ax3000t-ubootmod|\
 xiaomi,redmi-router-ax6000-ubootmod|\
+zbtlink,zbt-z8103ax-c-ubi|\
 zbtlink,zbt-z8103ax-c-ubootmod|\
 zyxel,ex5601-t0-ubootmod)
 	ubootenv_add_ubi_default

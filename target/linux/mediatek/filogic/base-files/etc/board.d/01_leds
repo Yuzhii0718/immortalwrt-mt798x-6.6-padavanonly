@@ -218,6 +218,7 @@ xiaomi,redmi-router-ax6000-ubootmod)
 	ucidef_set_led_netdev "wan" "wan" "rgb:network" "wan" "link"
 	;;
 zbtlink,zbt-z8103ax|\
+zbtlink,zbt-z8103ax-ubi|\
 zbtlink,zbt-z8103ax-c*)
 	ucidef_set_led_netdev "wan" "wan" "green:wan" "eth1" "link tx rx"
 	;;

@@ -24,6 +24,7 @@ mediatek_setup_interfaces()
 	ruijie,rg-x60-new*|\
 	umi,uax3000e|\
 	zbtlink,zbt-z8103ax|\
+	zbtlink,zbt-z8103ax-ubi|\
 	zbtlink,zbt-z8103ax-c*)
 		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" eth1
 		;;
