@@ -730,12 +730,12 @@ SVN-Revision: 35130
 @@ -406,7 +406,7 @@ static void tcp_sack(const struct sk_buf
  
  	/* Fast path for timestamp-only option */
- 	if (length == TCPOLEN_TSTAMP_ALIGNED
--	    && *(__be32 *)ptr == htonl((TCPOPT_NOP << 24)
-+	    && net_hdr_word(ptr) == htonl((TCPOPT_NOP << 24)
- 				       | (TCPOPT_NOP << 16)
- 				       | (TCPOPT_TIMESTAMP << 8)
- 				       | TCPOLEN_TIMESTAMP))
+ 	if (length == TCPOLEN_TSTAMP_ALIGNED &&
+-	    get_unaligned_be32(ptr) == ((TCPOPT_NOP << 24) |
++	    net_hdr_word(ptr) == htonl((TCPOPT_NOP << 24) |
+ 					(TCPOPT_NOP << 16) |
+ 					(TCPOPT_TIMESTAMP << 8) |
+ 					TCPOLEN_TIMESTAMP))
 --- a/net/xfrm/xfrm_input.c
 +++ b/net/xfrm/xfrm_input.c
 @@ -168,8 +168,8 @@ int xfrm_parse_spi(struct sk_buff *skb,
