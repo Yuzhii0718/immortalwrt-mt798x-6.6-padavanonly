@@ -2209,6 +2209,27 @@ define Device/sn_r1
 endef
 TARGET_DEVICES += sn_r1
 
+define Device/sn_r1-fit
+  DEVICE_VENDOR := SN
+  DEVICE_MODEL := R1
+  DEVICE_VARIANT := (FIT)
+  DEVICE_DTS := mt7981b-sn-r1
+  DEVICE_DTS_DIR := ../dts
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware \
+	f2fsck mkf2fs e2fsprogs kmod-nvme mmc-utils losetup f2fs-tools kmod-fs-f2fs kmod-mmc
+  SUPPORTED_DEVICES += sn,r1
+  KERNEL := kernel-bin | lzma
+  KERNEL_INITRAMFS := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
+  IMAGES := sysupgrade.itb
+  IMAGE/sysupgrade.itb := append-kernel | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb external-static-with-rootfs | \
+	pad-rootfs | append-metadata
+  ARTIFACTS := emmc-gpt.bin
+  ARTIFACT/emmc-gpt.bin := mt798x-gpt emmc
+endef
+TARGET_DEVICES += sn_r1-fit
+
 define Device/supergateway_s20-common
   DEVICE_VENDOR := Super Gateway
   DEVICE_DTS_DIR := ../dts
