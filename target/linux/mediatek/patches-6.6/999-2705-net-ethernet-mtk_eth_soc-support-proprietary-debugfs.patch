@@ -177,8 +177,8 @@
  	.ndo_tx_timeout		= mtk_tx_timeout,
  	.ndo_get_stats64        = mtk_get_stats64,
 @@ -5389,6 +5409,9 @@ static int mtk_probe(struct platform_dev
- 	netif_napi_add(&eth->dummy_dev, &eth->tx_napi, mtk_napi_tx);
- 	netif_napi_add(&eth->dummy_dev, &eth->rx_napi, mtk_napi_rx);
+ 	netif_napi_add(eth->dummy_dev, &eth->tx_napi, mtk_napi_tx);
+ 	netif_napi_add(eth->dummy_dev, &eth->rx_napi, mtk_napi_rx);
  
 +	mtketh_debugfs_init(eth);
 +	debug_proc_init(eth);
