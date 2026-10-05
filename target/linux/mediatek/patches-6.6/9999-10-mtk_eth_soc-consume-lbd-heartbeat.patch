@@ -1,0 +1,95 @@
+From: Yuzhii0718 <admin@yuzhii0718.eu.org>
+Date: Mon, 5 Oct 2026 19:10:00 +0800
+Subject: [PATCH] net: ethernet: mtk_eth_soc: consume loopback detection frames
+
+Some switches/PHYs on the link emit Marvell-style "loopback detection"
+heartbeats: broadcast frames with ethertype 0xfffa and a "\x03loopback"
+payload, one every 250ms.
+
+No kernel code claims ethertype 0xfffa, so every heartbeat takes
+__netif_receive_skb_core()'s UNHANDLED_PROTO path:
+
+        dev_core_stats_rx_dropped_inc(skb->dev);
+
+which is added into the device's rtnl_link_stats64->rx_dropped by
+dev_get_stats(). The result is a "RX dropped" counter that keeps growing
+(e.g. 4/s on the affected port) although the device is perfectly healthy -
+the driver side rx_dropped stays 0, all hardware MIBs stay 0 and
+/proc/net/softnet_stat does not move either.
+
+Claim the type on mtk_eth_soc probe so the heartbeats are consumed instead
+of being accounted as drops. The frames are only freed, bridging/flooding is
+unaffected because the rx_handler (bridge) runs before protocol delivery.
+Set the new lbd_filter module parameter to 0 to keep the plain upstream
+accounting.
+---
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |   50 +++++++++++++++++++++++++++
+ 1 file changed, 50 insertions(+)
+
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -48,6 +48,40 @@
+ static int mtk_msg_level = -1;
+ module_param_named(msg_level, mtk_msg_level, int, 0);
+ MODULE_PARM_DESC(msg_level, "Message level (-1=defaults,0=none,...,16=all)");
++/*
++ * Marvell-style loopback detection (LBD) heartbeats use ethertype 0xfffa with a
++ * "\x03loopback" payload and are sent every 250ms by switches/PHYs on the link.
++ * Nothing in the kernel claims that type, so each heartbeat ends up in
++ * __netif_receive_skb_core()'s UNHANDLED_PROTO path, which accounts it to
++ * dev_core_stats_rx_dropped_inc() - the port then shows a permanently growing
++ * "RX dropped" counter although the device itself is perfectly healthy.
++ *
++ * Claiming the type keeps that counter at 0: the heartbeats are just freed.
++ * Set mtk_lbd_filter=0 to keep the plain upstream accounting instead.
++ */
++#define MTK_LBD_ETH_P		0xfffa
++
++static int mtk_lbd_filter = 1;
++module_param_named(lbd_filter, mtk_lbd_filter, int, 0644);
++MODULE_PARM_DESC(lbd_filter, "consume loopback detection (0xfffa) frames (default 1)");
++
++static bool mtk_lbd_registered;
++
++static int mtk_lbd_rcv(struct sk_buff *skb, struct net_device *dev,
++		       struct packet_type *pt, struct net_device *orig_dev)
++{
++	/* Nothing to do with these heartbeats, just stop them from being
++	 * accounted as UNHANDLED_PROTO drops.
++	 */
++	kfree_skb(skb);
++
++	return NET_RX_SUCCESS;
++}
++
++static struct packet_type mtk_lbd_packet_type __read_mostly = {
++	.type = htons(MTK_LBD_ETH_P),
++	.func = mtk_lbd_rcv,
++};
+ DECLARE_COMPLETION(wait_ser_done);
+ #define MTK_ETHTOOL_STAT(x) { #x, \
+ 			      offsetof(struct mtk_hw_stats, x) / sizeof(u64) }
+@@ -6876,6 +6910,11 @@
+ 	schedule_delayed_work(&eth->reset.monitor_work,
+ 			      MTK_DMA_MONITOR_TIMEOUT);
+ 
++	if (mtk_lbd_filter && !mtk_lbd_registered) {
++		dev_add_pack(&mtk_lbd_packet_type);
++		mtk_lbd_registered = true;
++	}
++
+ 	return 0;
+ 
+ err_unreg_netdev:
+@@ -6938,6 +6977,11 @@
+ 	free_netdev(eth->dummy_dev);
+ 	mtk_mdio_cleanup(eth);
+ 
++	if (mtk_lbd_registered) {
++		dev_remove_pack(&mtk_lbd_packet_type);
++		mtk_lbd_registered = false;
++	}
++
+ 	return 0;
+ }
+ 
