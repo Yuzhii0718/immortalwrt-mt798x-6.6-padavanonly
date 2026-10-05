@@ -1,0 +1,119 @@
+From: Yuzhii0718 <admin@yuzhii0718.eu.org>
+Date: Mon, 5 Oct 2026 18:20:00 +0800
+Subject: [PATCH] [DEBUG] net: ethernet: mtk_eth_soc: attribute RX drop reasons
+
+Temporary instrumentation to find where eth rx_dropped comes from.
+
+mtk_poll_rx() has 5 drop sites:
+  [0] page_pool branch: mtk_page_pool_get_buff() returned NULL
+  [1] page_pool branch: napi_build_skb() failed
+  [2] !page_pool: napi_alloc_frag()/mtk_max_buf_alloc() failed
+  [3] !page_pool: dma_map_single() failed
+  [4] !page_pool: napi_build_skb() failed
+[2]..[4] are dead code once the page pool is in use (mtk_page_pool_enabled()
+is true for this SoC), so with the pool enabled only [0]/[1] can fire.
+
+Each site keeps its "dev->stats.rx_dropped++" and additionally bumps a reason
+counter; mtk_get_stats64() exposes the counters through statistics fields this
+driver never uses:
+
+  rx_fifo_errors    -> [0]      rx_missed_errors -> [1]
+  rx_frame_errors   -> [2]      rx_compressed    -> [3]
+  tx_carrier_errors -> [4]      tx_fifo_errors   -> driver-side rx_dropped total
+
+The last one allows splitting driver vs stack drops:
+  stack-side drops = /proc/net/dev "drop" - tx_fifo_errors
+(e.g. __netif_receive_skb_core() UNHANDLED_PROTO, which is accounted to
+skb->dev's core_stats and does NOT show up in /proc/net/softnet_stat).
+
+Read them with:
+  for f in rx_fifo_errors rx_missed_errors rx_frame_errors rx_compressed \
+           tx_carrier_errors tx_fifo_errors; do
+      printf "%-18s %s\n" $f $(cat /sys/class/net/eth1/statistics/$f); done
+
+Remove this patch once the cause is found.
+---
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |   30 ++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
+
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -56,6 +56,18 @@
+ 				  offsetof(struct mtk_hw_stats, xdp_stats.x) / \
+ 				  sizeof(u64) }
+ 
++/*
++ * DEBUG ONLY (temporary): attribute RX drops in mtk_poll_rx().
++ *   [0] page_pool out of pages      [1] page_pool branch: skb build failed
++ *   [2] !pool: buffer alloc failed  [3] !pool: dma_map_single failed
++ *   [4] !pool: skb build failed
++ * Exposed through /sys/class/net/<if>/statistics fields this driver never
++ * uses; tx_fifo_errors additionally carries the driver-side rx_dropped total,
++ * so  core-side drops = /proc/net/dev "drop" - tx_fifo_errors.
++ * Drop this patch once the cause is found.
++ */
++static unsigned long mtk_rx_drop_dbg[5];
++
+ static const struct mtk_reg_map mtk_reg_map = {
+ 	.tx_irq_mask		= 0x1a1c,
+ 	.tx_irq_status		= 0x1a18,
+@@ -1503,6 +1515,19 @@
+ 	storage->tx_errors = dev->stats.tx_errors;
+ 	storage->rx_dropped = dev->stats.rx_dropped;
+ 	storage->tx_dropped = dev->stats.tx_dropped;
++
++	/* DEBUG ONLY: export the 5 RX drop reasons plus the driver-side
++	 * rx_dropped total. None of these fields are set by this driver, and
++	 * none of them are touched by dev_get_stats() core_stats additions.
++	 * rx_fifo_errors[0] rx_missed_errors[1] rx_frame_errors[2]
++	 * rx_compressed[3] tx_carrier_errors[4] tx_fifo_errors=total
++	 */
++	storage->rx_fifo_errors = READ_ONCE(mtk_rx_drop_dbg[0]);
++	storage->rx_missed_errors = READ_ONCE(mtk_rx_drop_dbg[1]);
++	storage->rx_frame_errors = READ_ONCE(mtk_rx_drop_dbg[2]);
++	storage->rx_compressed = READ_ONCE(mtk_rx_drop_dbg[3]);
++	storage->tx_carrier_errors = READ_ONCE(mtk_rx_drop_dbg[4]);
++	storage->tx_fifo_errors = dev->stats.rx_dropped;
+ }
+ 
+ static inline int mtk_max_frag_size(int mtu)
+@@ -2537,6 +2562,7 @@
+ 							  GFP_ATOMIC);
+ 			if (unlikely(!new_data)) {
+ 				netdev->stats.rx_dropped++;
++				mtk_rx_drop_dbg[0]++;
+ 				goto release_desc;
+ 			}
+ 
+@@ -2561,6 +2587,7 @@
+ 				page_pool_put_full_page(ring->page_pool,
+ 							page, true);
+ 				netdev->stats.rx_dropped++;
++				mtk_rx_drop_dbg[1]++;
+ 				goto skip_rx;
+ 			}
+ 
+@@ -2575,6 +2602,7 @@
+ 
+ 			if (unlikely(!new_data)) {
+ 				netdev->stats.rx_dropped++;
++				mtk_rx_drop_dbg[2]++;
+ 				goto release_desc;
+ 			}
+ 
+@@ -2585,6 +2613,7 @@
+ 						       dma_addr))) {
+ 				skb_free_frag(new_data);
+ 				netdev->stats.rx_dropped++;
++				mtk_rx_drop_dbg[3]++;
+ 				goto release_desc;
+ 			}
+ 
+@@ -2597,6 +2626,7 @@
+ 			skb = napi_build_skb(data, ring->frag_size);
+ 			if (unlikely(!skb)) {
+ 				netdev->stats.rx_dropped++;
++				mtk_rx_drop_dbg[4]++;
+ 				skb_free_frag(data);
+ 				goto skip_rx;
+ 			}
