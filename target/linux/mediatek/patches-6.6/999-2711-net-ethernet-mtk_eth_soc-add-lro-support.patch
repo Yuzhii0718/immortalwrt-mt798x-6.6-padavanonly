@@ -352,7 +352,7 @@ fails under load (rx_dropped).
  	return 0;
  }
  
-@@ -4979,7 +5130,7 @@ static int mtk_get_rxnfc(struct net_devi
+@@ -4983,7 +5134,7 @@ static int mtk_get_rxnfc(struct net_devi
  	switch (cmd->cmd) {
  	case ETHTOOL_GRXRINGS:
  		if (dev->hw_features & NETIF_F_LRO) {
@@ -361,7 +361,7 @@ fails under load (rx_dropped).
  			ret = 0;
  		} else if (MTK_HAS_CAPS(eth->soc->caps, MTK_RSS)) {
  			cmd->data = MTK_RX_RSS_NUM;
-@@ -5893,6 +6044,18 @@ static int mtk_probe(struct platform_dev
+@@ -5897,6 +6048,18 @@ static int mtk_probe(struct platform_dev
  						goto err_free_dev;
  				}
  			}
@@ -380,8 +380,8 @@ fails under load (rx_dropped).
  		} else {
  			err = devm_request_irq(eth->dev, eth->irq_fe[2],
  					       mtk_handle_irq_rx, 0,
-@@ -5958,6 +6121,13 @@ static int mtk_probe(struct platform_dev
- 				       mtk_napi_rx);
+@@ -5970,6 +6133,13 @@ static int mtk_probe(struct platform_dev
+ 				   eth->netdev[i]->base_addr, eth->irq_fe[0]);
  	}
  
 +	if (eth->hwlro) {
@@ -394,7 +394,19 @@ fails under load (rx_dropped).
  	mtketh_debugfs_init(eth);
  	debug_proc_init(eth);
  
-@@ -6013,6 +6183,11 @@ static int mtk_remove(struct platform_de
+@@ -5996,6 +6166,11 @@ err_deinit_ppe:
+ 				netif_napi_del(&eth->rx_napi[MTK_RSS_RING(i)].napi);
+ 		}
+ 
++		if (eth->hwlro) {
++			for (i = 0; i < MTK_HW_LRO_RING_NUM; i++)
++				netif_napi_del(&eth->rx_napi[MTK_HW_LRO_RING(i)].napi);
++		}
++
+ 		free_netdev(eth->dummy_dev);
+ 	}
+ 	mtk_ppe_deinit(eth);
+@@ -6043,6 +6218,11 @@ static int mtk_remove(struct platform_de
  			netif_napi_del(&eth->rx_napi[MTK_RSS_RING(i)].napi);
  	}
  
@@ -404,9 +416,9 @@ fails under load (rx_dropped).
 +	}
 +
  	mtk_cleanup(eth);
+ 	free_netdev(eth->dummy_dev);
  	mtk_mdio_cleanup(eth);
- 
-@@ -6179,7 +6354,7 @@ static const struct mtk_soc_data mt7981_
+@@ -6210,7 +6390,7 @@ static const struct mtk_soc_data mt7981_
  	},
  	.rx = {
  		.desc_size = sizeof(struct mtk_rx_dma),
@@ -415,7 +427,7 @@ fails under load (rx_dropped).
  		.dma_max_len = MTK_TX_DMA_BUF_LEN,
  		.dma_len_offset = 16,
  		.dma_size = MTK_DMA_SIZE(512),
-@@ -6209,7 +6384,7 @@ static const struct mtk_soc_data mt7986_
+@@ -6240,7 +6420,7 @@ static const struct mtk_soc_data mt7986_
  	},
  	.rx = {
  		.desc_size = sizeof(struct mtk_rx_dma),

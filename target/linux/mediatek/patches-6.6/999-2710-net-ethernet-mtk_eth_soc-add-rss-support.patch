@@ -3,12 +3,13 @@ From: Mason Chang <mason-cw.chang@mediatek.com>
 Date: Thu, 29 May 2025 13:01:48 +0800
 Subject: [PATCH] net: ethernet: mtk_eth_soc: add rss support
 
-Rebased on Linux 6.6.158 (as applied by 999-2700..999-2709). The
-dummy netdev comes from alloc_netdev_dummy() there, so eth->dummy_dev
-is a struct net_device pointer: the dummy-netdev hunks drop the "&",
-the two "eth->dummy_dev.threaded"/strcpy() lines are gone, mtk_remove()
-gains free_netdev(eth->dummy_dev), and the rx_napi[] indirection uses
-its .napi member. Hunk line numbers and context are recomputed.
+Rebased on Linux 6.6.160 (as applied by 999-2700..999-2709). There the
+dummy netdev comes from alloc_netdev_dummy(), so eth->dummy_dev is a
+struct net_device pointer: the two "eth->dummy_dev->threaded"/strcpy()
+lines are removed, mtk_remove() gains free_netdev(eth->dummy_dev), the
+rx_napi[] indirection goes through its .napi member and the IRQ
+handling uses eth->irq_fe[]/eth->irq_pdma[]. Hunk line numbers and
+context are recomputed.
 
 ---
  drivers/net/ethernet/mediatek/mtk_eth_soc.c |  510 +++++++++++++++++++++-------
@@ -440,7 +441,7 @@ its .napi member. Hunk line numbers and context are recomputed.
  
  	mtk_tx_irq_disable(eth, MTK_TX_DONE_INT);
 -	mtk_rx_irq_disable(eth, eth->soc->rx.irq_done_mask);
--	mtk_handle_irq_rx(eth->irq[2], dev);
+-	mtk_handle_irq_rx(eth->irq[2], eth);
 +	mtk_rx_irq_disable(eth, MTK_RX_DONE_INT(0));
 +	mtk_handle_irq_rx(eth->irq_fe[2], &eth->rx_napi[0]);
  	mtk_tx_irq_enable(eth, MTK_TX_DONE_INT);
@@ -790,16 +791,7 @@ its .napi member. Hunk line numbers and context are recomputed.
  
  	/* No MT7628/88 support yet */
  	if (!MTK_HAS_CAPS(eth->soc->caps, MTK_SOC_MT7628)) {
-@@ -5689,7 +5945,7 @@ static int mtk_probe(struct platform_dev
- 		} else
- 			netif_info(eth, probe, eth->netdev[i],
- 				   "mediatek frame engine at 0x%08lx, irq %d\n",
--				   eth->netdev[i]->base_addr, eth->irq[0]);
-+				   eth->netdev[i]->base_addr, eth->irq_fe[0]);
- 	}
- 
- 	/* we run 2 devices on the same DMA ring so we need a dummy device
-@@ -5701,10 +5957,14 @@ static int mtk_probe(struct platform_dev
+@@ -5691,10 +5947,14 @@ static int mtk_probe(struct platform_dev
  		dev_err(eth->dev, "failed to allocated dummy device\n");
  		goto err_unreg_netdev;
  	}
@@ -815,9 +807,33 @@ its .napi member. Hunk line numbers and context are recomputed.
 +				       mtk_napi_rx);
 +	}
  
+ 	for (i = 0; i < MTK_MAX_DEVS; i++) {
+ 		if (!eth->netdev[i])
+@@ -5707,7 +5967,7 @@ static int mtk_probe(struct platform_dev
+ 		} else
+ 			netif_info(eth, probe, eth->netdev[i],
+ 				   "mediatek frame engine at 0x%08lx, irq %d\n",
+-				   eth->netdev[i]->base_addr, eth->irq[0]);
++				   eth->netdev[i]->base_addr, eth->irq_fe[0]);
+ 	}
+ 
  	mtketh_debugfs_init(eth);
- 	debug_proc_init(eth);
-@@ -5756,7 +6016,13 @@ static int mtk_remove(struct platform_de
+@@ -5729,7 +5989,13 @@ err_deinit_ppe:
+ 	cancel_work_sync(&eth->pending_work);
+ 	if (eth->dummy_dev) {
+ 		netif_napi_del(&eth->tx_napi);
+-		netif_napi_del(&eth->rx_napi);
++		netif_napi_del(&eth->rx_napi[0].napi);
++
++		if (MTK_HAS_CAPS(eth->soc->caps, MTK_RSS)) {
++			for (i = 1; i < MTK_RX_RSS_NUM; i++)
++				netif_napi_del(&eth->rx_napi[MTK_RSS_RING(i)].napi);
++		}
++
+ 		free_netdev(eth->dummy_dev);
+ 	}
+ 	mtk_ppe_deinit(eth);
+@@ -5770,7 +6036,13 @@ static int mtk_remove(struct platform_de
  	mtk_hw_deinit(eth);
  
  	netif_napi_del(&eth->tx_napi);
@@ -832,7 +848,7 @@ its .napi member. Hunk line numbers and context are recomputed.
  	mtk_cleanup(eth);
  	free_netdev(eth->dummy_dev);
  	mtk_mdio_cleanup(eth);
-@@ -5771,6 +6037,7 @@ static const struct mtk_soc_data mt2701_
+@@ -5785,6 +6057,7 @@ static const struct mtk_soc_data mt2701_
  	.required_clks = MT7623_CLKS_BITMAP,
  	.required_pctl = true,
  	.version = 1,
@@ -840,7 +856,7 @@ its .napi member. Hunk line numbers and context are recomputed.
  	.tx = {
  		.desc_size = sizeof(struct mtk_tx_dma),
  		.dma_max_len = MTK_TX_DMA_BUF_LEN,
-@@ -5780,7 +6047,6 @@ static const struct mtk_soc_data mt2701_
+@@ -5794,7 +6067,6 @@ static const struct mtk_soc_data mt2701_
  	},
  	.rx = {
  		.desc_size = sizeof(struct mtk_rx_dma),
@@ -848,7 +864,7 @@ its .napi member. Hunk line numbers and context are recomputed.
  		.dma_l4_valid = RX_DMA_L4_VALID,
  		.dma_size = MTK_DMA_SIZE(512),
  		.dma_max_len = MTK_TX_DMA_BUF_LEN,
-@@ -5799,6 +6065,7 @@ static const struct mtk_soc_data mt7621_
+@@ -5813,6 +6085,7 @@ static const struct mtk_soc_data mt7621_
  	.ppe_num = 1,
  	.hash_offset = 2,
  	.foe_entry_size = MTK_FOE_ENTRY_V1_SIZE,
@@ -856,7 +872,7 @@ its .napi member. Hunk line numbers and context are recomputed.
  	.tx = {
  		.desc_size = sizeof(struct mtk_tx_dma),
  		.dma_max_len = MTK_TX_DMA_BUF_LEN,
-@@ -5808,7 +6075,6 @@ static const struct mtk_soc_data mt7621_
+@@ -5822,7 +6095,6 @@ static const struct mtk_soc_data mt7621_
  	},
  	.rx = {
  		.desc_size = sizeof(struct mtk_rx_dma),
@@ -864,7 +880,7 @@ its .napi member. Hunk line numbers and context are recomputed.
  		.dma_l4_valid = RX_DMA_L4_VALID,
  		.dma_size = MTK_DMA_SIZE(512),
  		.dma_max_len = MTK_TX_DMA_BUF_LEN,
-@@ -5829,6 +6095,7 @@ static const struct mtk_soc_data mt7622_
+@@ -5843,6 +6115,7 @@ static const struct mtk_soc_data mt7622_
  	.hash_offset = 2,
  	.has_accounting = true,
  	.foe_entry_size = MTK_FOE_ENTRY_V1_SIZE,
@@ -872,7 +888,7 @@ its .napi member. Hunk line numbers and context are recomputed.
  	.tx = {
  		.desc_size = sizeof(struct mtk_tx_dma),
  		.dma_max_len = MTK_TX_DMA_BUF_LEN,
-@@ -5838,7 +6105,6 @@ static const struct mtk_soc_data mt7622_
+@@ -5852,7 +6125,6 @@ static const struct mtk_soc_data mt7622_
  	},
  	.rx = {
  		.desc_size = sizeof(struct mtk_rx_dma),
@@ -880,7 +896,7 @@ its .napi member. Hunk line numbers and context are recomputed.
  		.dma_l4_valid = RX_DMA_L4_VALID,
  		.dma_size = MTK_DMA_SIZE(512),
  		.dma_max_len = MTK_TX_DMA_BUF_LEN,
-@@ -5858,6 +6124,7 @@ static const struct mtk_soc_data mt7623_
+@@ -5872,6 +6144,7 @@ static const struct mtk_soc_data mt7623_
  	.hash_offset = 2,
  	.foe_entry_size = MTK_FOE_ENTRY_V1_SIZE,
  	.disable_pll_modes = true,
@@ -888,7 +904,7 @@ its .napi member. Hunk line numbers and context are recomputed.
  	.tx = {
  		.desc_size = sizeof(struct mtk_tx_dma),
  		.dma_max_len = MTK_TX_DMA_BUF_LEN,
-@@ -5867,7 +6134,6 @@ static const struct mtk_soc_data mt7623_
+@@ -5881,7 +6154,6 @@ static const struct mtk_soc_data mt7623_
  	},
  	.rx = {
  		.desc_size = sizeof(struct mtk_rx_dma),
@@ -896,7 +912,7 @@ its .napi member. Hunk line numbers and context are recomputed.
  		.dma_l4_valid = RX_DMA_L4_VALID,
  		.dma_size = MTK_DMA_SIZE(512),
  		.dma_max_len = MTK_TX_DMA_BUF_LEN,
-@@ -5884,6 +6150,7 @@ static const struct mtk_soc_data mt7629_
+@@ -5898,6 +6170,7 @@ static const struct mtk_soc_data mt7629_
  	.required_pctl = false,
  	.has_accounting = true,
  	.version = 1,
@@ -904,7 +920,7 @@ its .napi member. Hunk line numbers and context are recomputed.
  	.tx = {
  		.desc_size = sizeof(struct mtk_tx_dma),
  		.dma_max_len = MTK_TX_DMA_BUF_LEN,
-@@ -5893,7 +6160,6 @@ static const struct mtk_soc_data mt7629_
+@@ -5907,7 +6180,6 @@ static const struct mtk_soc_data mt7629_
  	},
  	.rx = {
  		.desc_size = sizeof(struct mtk_rx_dma),
@@ -912,7 +928,7 @@ its .napi member. Hunk line numbers and context are recomputed.
  		.dma_l4_valid = RX_DMA_L4_VALID,
  		.dma_size = MTK_DMA_SIZE(512),
  		.dma_max_len = MTK_TX_DMA_BUF_LEN,
-@@ -5914,6 +6180,7 @@ static const struct mtk_soc_data mt7981_
+@@ -5928,6 +6200,7 @@ static const struct mtk_soc_data mt7981_
  	.hash_offset = 4,
  	.has_accounting = true,
  	.foe_entry_size = MTK_FOE_ENTRY_V2_SIZE,
@@ -920,7 +936,7 @@ its .napi member. Hunk line numbers and context are recomputed.
  	.tx = {
  		.desc_size = sizeof(struct mtk_tx_dma_v2),
  		.dma_max_len = MTK_TX_DMA_BUF_LEN_V2,
-@@ -5923,7 +6190,6 @@ static const struct mtk_soc_data mt7986_
+@@ -5937,7 +6210,6 @@ static const struct mtk_soc_data mt7981_
  	},
  	.rx = {
  		.desc_size = sizeof(struct mtk_rx_dma),
@@ -928,7 +944,7 @@ its .napi member. Hunk line numbers and context are recomputed.
  		.dma_l4_valid = RX_DMA_L4_VALID_V2,
  		.dma_max_len = MTK_TX_DMA_BUF_LEN,
  		.dma_len_offset = 16,
-@@ -5944,16 +6210,16 @@ static const struct mtk_soc_data mt7986_
+@@ -5958,16 +6230,16 @@ static const struct mtk_soc_data mt7986_
  	.hash_offset = 4,
  	.has_accounting = true,
  	.foe_entry_size = MTK_FOE_ENTRY_V2_SIZE,
@@ -947,7 +963,7 @@ its .napi member. Hunk line numbers and context are recomputed.
  		.dma_l4_valid = RX_DMA_L4_VALID_V2,
  		.dma_max_len = MTK_TX_DMA_BUF_LEN,
  		.dma_len_offset = 16,
-@@ -5974,20 +6240,20 @@ static const struct mtk_soc_data mt7988_
+@@ -5988,20 +6260,20 @@ static const struct mtk_soc_data mt7988_
  	.hash_offset = 4,
  	.has_accounting = true,
  	.foe_entry_size = MTK_FOE_ENTRY_V3_SIZE,
@@ -971,7 +987,7 @@ its .napi member. Hunk line numbers and context are recomputed.
  	},
  };
  
-@@ -5998,6 +6264,7 @@ static const struct mtk_soc_data rt5350_
+@@ -6012,6 +6284,7 @@ static const struct mtk_soc_data rt5350_
  	.required_clks = MT7628_CLKS_BITMAP,
  	.required_pctl = false,
  	.version = 1,
@@ -979,7 +995,7 @@ its .napi member. Hunk line numbers and context are recomputed.
  	.tx = {
  		.desc_size = sizeof(struct mtk_tx_dma),
  		.dma_max_len = MTK_TX_DMA_BUF_LEN,
-@@ -6006,7 +6273,6 @@ static const struct mtk_soc_data rt5350_
+@@ -6020,7 +6293,6 @@ static const struct mtk_soc_data rt5350_
  	},
  	.rx = {
  		.desc_size = sizeof(struct mtk_rx_dma),
