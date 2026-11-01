@@ -1,0 +1,117 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yuzhii0718 <admin@yuzhii0718.eu.org>
+Date: Sun, 1 Nov 2026 00:00:00 +0800
+Subject: [PATCH] mediatek: usb-net: apply MediaTek cellular modem quirks
+
+Carry the MediaTek SDK adaptations for the cellular modem drivers as a
+patch instead of whole-file overrides, so that upstream fixes (e.g. the
+check_add_overflow() sanity checks in rndis_rx_fixup(), the struct_size_t()
+NDP validation in cdc_ncm, and newly added modem IDs) stay effective.
+
+The adaptations are:
+
+ - rndis_host, cdc_ncm, qmi_wwan: use a fixed 32 KiB RX URB size. The
+   usbnet default is derived from hard_mtu, which is too small for the
+   aggregated transfers of these modems and leads to dropped packets.
+
+ - qmi_wwan: always use ethernet framing (rawip = 0) and use the well
+   known modem MAC as source address, so that PPE/HNAT offload and the
+   netfilter path always see valid L2 headers.
+
+ - cdc_mbim: reserve an extra ethernet header and use the well known
+   modem MAC as source address, for the same reason.
+
+Vendor specific device ID changes are intentionally not carried; the
+upstream ID tables are kept as-is.
+
+Signed-off-by: Yuzhii0718 <admin@yuzhii0718.eu.org>
+---
+--- a/drivers/net/usb/cdc_mbim.c
++++ b/drivers/net/usb/cdc_mbim.c
+@@ -35,6 +35,8 @@
+ 	unsigned long flags;
+ };
+ 
++static const u8 default_modem_addr[ETH_ALEN] = {0x02, 0x50, 0xf3};
++
+ /* flags for the cdc_mbim_state.flags field */
+ enum cdc_mbim_flags {
+ 	FLAG_IPS0_VLAN = 1 << 0,	/* IP session 0 is tagged  */
+@@ -387,15 +389,17 @@
+ 		}
+ 	}
+ 
+-	skb = netdev_alloc_skb_ip_align(dev->net,  len + ETH_HLEN);
++	skb = netdev_alloc_skb_ip_align(dev->net, len + ETH_HLEN * 2);
+ 	if (!skb)
+ 		goto err;
+ 
+ 	/* add an ethernet header */
++	skb_reserve(skb, ETH_HLEN);
+ 	skb_put(skb, ETH_HLEN);
+ 	skb_reset_mac_header(skb);
+ 	eth_hdr(skb)->h_proto = proto;
+ 	eth_zero_addr(eth_hdr(skb)->h_source);
++	memcpy(eth_hdr(skb)->h_source, default_modem_addr, ETH_ALEN);
+ 	memcpy(eth_hdr(skb)->h_dest, dev->net->dev_addr, ETH_ALEN);
+ 
+ 	/* add datagram */
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -464,6 +464,7 @@
+ 	}
+ 
+ 	dev->hard_mtu = ctx->tx_max;
++	dev->rx_urb_size = 32 * 1024;
+ 
+ 	/* max qlen depend on hard_mtu and rx_urb_size */
+ 	usbnet_update_max_qlen(dev);
+@@ -979,6 +980,7 @@
+ 	/* must handle MTU changes */
+ 	dev->net->netdev_ops = &cdc_ncm_netdev_ops;
+ 	dev->net->max_mtu = cdc_ncm_max_dgram_size(dev) - cdc_ncm_eth_hlen(dev);
++	dev->rx_urb_size = 32 * 1024;
+ 
+ 	return 0;
+ 
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -570,7 +570,8 @@
+ static int qmi_wwan_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+ {
+ 	struct qmi_wwan_state *info = (void *)&dev->data;
+-	bool rawip = info->flags & QMI_WWAN_FLAG_RAWIP;
++	/* MediaTek: always use ethernet framing so PPE/HNAT sees L2 headers */
++	bool rawip = 0;
+ 	__be16 proto;
+ 
+ 	/* This check is no longer done by usbnet */
+@@ -619,6 +620,7 @@
+ 	skb_reset_mac_header(skb);
+ 	eth_hdr(skb)->h_proto = proto;
+ 	eth_zero_addr(eth_hdr(skb)->h_source);
++	memcpy(eth_hdr(skb)->h_source, default_modem_addr, ETH_ALEN);
+ fix_dest:
+ 	memcpy(eth_hdr(skb)->h_dest, dev->net->dev_addr, ETH_ALEN);
+ 	return 1;
+@@ -850,6 +852,7 @@
+ 	}
+ 	dev->net->netdev_ops = &qmi_wwan_netdev_ops;
+ 	dev->net->sysfs_groups[0] = &qmi_wwan_sysfs_attr_group;
++	dev->rx_urb_size = 32 * 1024;
+ err:
+ 	return status;
+ }
+--- a/drivers/net/usb/rndis_host.c
++++ b/drivers/net/usb/rndis_host.c
+@@ -343,8 +343,8 @@
+ 		goto fail_and_release;
+ 	}
+ 
+-	dev->rx_urb_size = dev->hard_mtu + (dev->maxpacket + 1);
+-	dev->rx_urb_size &= ~(dev->maxpacket - 1);
++	/* MediaTek: use a fixed 32 KiB RX URB size for RNDIS modems */
++	dev->rx_urb_size = 32 * 1024;
+ 	u.init->max_transfer_size = cpu_to_le32(dev->rx_urb_size);
+ 
+ 	net->netdev_ops = &rndis_netdev_ops;
